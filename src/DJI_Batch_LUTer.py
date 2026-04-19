@@ -43,7 +43,14 @@ class ExportWorker(QRunnable):
         
         cmd = [self.ffmpeg_path]
         cmd += ["-i", str(self.video_path.absolute())]
-        cmd += ["-vf", f"format=yuv420p,lut3d='{self.lut_path_ffmpeg}'"]
+        
+        # 更加稳健的滤镜路径处理
+        # ffmpeg 滤镜字符串中的路径转义规则：
+        # 1. 反斜杠转为正斜杠
+        # 2. 冒号转义为 \:
+        # 3. 整个路径包裹在单引号中
+        safe_lut_path = str(Path(self.lut_path_ffmpeg).absolute()).replace("\\", "/").replace(":", "\\:")
+        cmd += ["-vf", f"format=yuv420p,lut3d='{safe_lut_path}'"]
 
         if self.encoder_type == "NVIDIA (h264_nvenc)":
             cmd += ["-c:v", "h264_nvenc", "-preset", "fast", "-b:v", "20M"]
@@ -56,12 +63,23 @@ class ExportWorker(QRunnable):
 
         cmd += ["-c:a", "copy", str(output_file.absolute()), "-y"]
         
+        # 打印完整命令到日志以便调试
+        self.signals.log.emit(f"📝 执行命令: {' '.join(cmd)}")
+        
         try:
-            process = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
+            # 使用 startupinfo 隐藏控制台窗口 (Windows)
+            startupinfo = None
+            if os.name == 'nt':
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            
+            process = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='ignore', startupinfo=startupinfo)
+            
             if process.returncode == 0:
                 self.signals.log.emit(f"   ✅ 成功: {output_file.name}")
             else:
-                self.signals.log.emit(f"   ❌ 失败: {self.video_path.name}\n错误详情: {process.stderr}")
+                error_msg = process.stderr if process.stderr else "未知错误 (无错误输出)"
+                self.signals.log.emit(f"   ❌ 失败: {self.video_path.name}\n错误详情: {error_msg}")
         except Exception as e:
             self.signals.log.emit(f"   ❌ 意外错误: {self.video_path.name} - {str(e)}")
         
@@ -312,10 +330,13 @@ class MainWindow(QMainWindow):
         paths = [r"C:\Program Files\EVCapture\ffmpeg.exe", "ffmpeg"]
         for p in paths:
             try:
-                subprocess.run([p, "-version"], capture_output=True)
-                self.ffmpeg_edit.setText(p)
-                self.detect_available_encoders(p)
-                break
+                res = subprocess.run([p, "-version"], capture_output=True, text=True)
+                if res.returncode == 0:
+                    self.ffmpeg_edit.setText(p)
+                    self.log_display.append(f"🔍 找到 FFmpeg: {p}")
+                    self.log_display.append(res.stdout.split('\n')[0])
+                    self.detect_available_encoders(p)
+                    break
             except:
                 continue
 
@@ -424,10 +445,9 @@ class MainWindow(QMainWindow):
         self.threadpool.setMaxThreadCount(max_threads)
         self.log_display.append(f"🚀 准备导出 {self.total_tasks} 个文件")
 
-        lut_path_ffmpeg = str(Path(lut_path).absolute()).replace("\\", "/").replace(":", "\\:")
-
+        # 将原始路径传给 Worker，在 Worker 内部处理转义
         for video in video_files:
-            worker = ExportWorker(video, output_dir, lut_path_ffmpeg, ffmpeg_path, encoder_type)
+            worker = ExportWorker(video, output_dir, lut_path, ffmpeg_path, encoder_type)
             worker.signals.log.connect(self.log_display.append)
             worker.signals.progress.connect(self.update_progress)
             self.threadpool.start(worker)
