@@ -18,11 +18,11 @@
 
 | 设备系列 | 还原滤镜 (Normalization) | 调色滤镜 (Color Grading) | 说明 |
 | :--- | :--- | :--- | :--- |
-| **Osmo Action 4** | D-Log M to Rec.709 | Forest, Ice, Nature | 全系列官方调色支持 |
-| **Osmo Action 5 Pro** | D-Log M to Rec.709 | Ju, Lan, Mei, Zhu | 最新 Pro 系列滤镜支持 |
-| **Mavic 3 系列** | D-Log, D-Log M | - | 包含标准及 Vivid 还原 |
-| **Mavic 4 Pro** | D-Log, D-Log M | - | 包含标准及 Vivid 还原 |
-| **其他设备** | 自动识别子目录 | 自动识别子目录 | 支持通过 `config/` 目录扩展 |
+| **Osmo Action 4** 📸 | ✅ D-Log M to Rec.709 | ✅ Forest, Ice, Nature | 全系列官方调色支持 |
+| **Osmo Action 5 Pro** 📸 | ✅ D-Log M to Rec.709 | ✅ Ju, Lan, Mei, Zhu | 最新 Pro 系列滤镜支持 |
+| **Mavic 3 系列** 🛸 | ✅ D-Log, D-Log M | - | 包含标准及 Vivid 还原 |
+| **Mavic 4 Pro** 🛸 | ✅ D-Log, D-Log M | - | 包含标准及 Vivid 还原 |
+| **其他设备** 📁 | 自动识别子目录 | 自动识别子目录 | 支持通过 `config/` 目录扩展 |
 
 ## 📂 项目结构
 
