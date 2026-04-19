@@ -19,7 +19,7 @@ def build():
         print("❌ 错误: 未安装 pyinstaller。正在尝试为你安装...")
         subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"])
 
-    # 基础命令 (使用 sys.executable -m PyInstaller 确保能找到命令)
+    # 基础命令
     cmd = [
         sys.executable,
         "-m", "PyInstaller",
@@ -28,11 +28,22 @@ def build():
         "--name=DJI_Batch_LUTer", # 程序名称
         "--icon=src/assets/icon.ico",    # 程序图标
         "--clean",               # 清理缓存
+        "--upx-dir=.",           # 使用当前目录下的 UPX 压缩
     ]
 
-    # 添加数据目录 (仅当目录存在时添加)
-    # 注意: Windows 格式为 source;dest
-    data_dirs = ["config", "doc", "src/assets"]
+    # --- 优化体积: 排除不必要的模块 ---
+    excludes = [
+        "unittest", "pydoc", "PyQt6.QtWebEngineCore", "PyQt6.QtWebEngineWidgets",
+        "PyQt6.QtPdf", "PyQt6.QtMultimedia", "PyQt6.QtQml", "PyQt6.QtQuick",
+        "PyQt6.QtNetwork", "PyQt6.QtSql", "PyQt6.QtTest", "PyQt6.QtXml",
+        "tkinter", "matplotlib", "numpy", "sqlite3"
+    ]
+    for ex in excludes:
+        cmd.extend(["--exclude-module", ex])
+
+    # 添加数据目录 (仅保留必要的 UI 资源)
+    # 注意: config 和 doc 文件夹很大，我们将其放在 EXE 外部，不再打包进 EXE 内部
+    data_dirs = ["src/assets"]
     for d in data_dirs:
         if os.path.exists(d):
             cmd.extend(["--add-data", f"{d};{d}"])
@@ -73,9 +84,6 @@ def build():
         # 创建空的 RAW 和 EXPORT 文件夹
         (release_dir / "RAW").mkdir(exist_ok=True)
         (release_dir / "EXPORT").mkdir(exist_ok=True)
-        # 为了让 Git 或其他工具保留空文件夹，可以放入 .gitkeep
-        with open(release_dir / "RAW" / ".gitkeep", "w") as f: pass
-        with open(release_dir / "EXPORT" / ".gitkeep", "w") as f: pass
         
         # 压缩
         shutil.make_archive(zip_name, 'zip', release_dir)

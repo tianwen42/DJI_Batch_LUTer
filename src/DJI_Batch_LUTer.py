@@ -30,8 +30,11 @@ RESOURCE_DIR = get_resource_path("")
 
 # 配置文件路径 (始终放在 EXE/脚本同级目录)
 CONFIG_FILE = BASE_DIR / "dji_luter_config.json"
-# 默认配置目录 (包含所有 LUT)
-DEFAULT_CONFIG_DIR = RESOURCE_DIR / "config"
+# 默认配置目录 (包含所有 LUT，优先使用外部目录)
+DEFAULT_CONFIG_DIR = BASE_DIR / "config"
+# 如果外部目录不存在，尝试使用内置资源目录 (兼容旧版或特殊打包)
+if not DEFAULT_CONFIG_DIR.exists():
+    DEFAULT_CONFIG_DIR = RESOURCE_DIR / "config"
 # 默认素材目录
 DEFAULT_INPUT_DIR = BASE_DIR / "RAW"
 # 默认导出目录
@@ -138,6 +141,10 @@ class MainWindow(QMainWindow):
         
         self.threadpool = QThreadPool()
         self.cpu_count = os.cpu_count() or 2
+        
+        # 确保默认素材和导出目录存在 (防止在克隆后文件夹缺失)
+        DEFAULT_INPUT_DIR.mkdir(parents=True, exist_ok=True)
+        DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         
         # LUT 数据结构: {设备名: {类型: [文件列表]}}
         self.lut_data = {}
@@ -383,6 +390,26 @@ class MainWindow(QMainWindow):
         btn_layout.addWidget(self.stop_btn, 1)
         btn_layout.addWidget(self.open_folder_btn, 1)
         layout.addLayout(btn_layout)
+
+        # 7. 底部信息与仓库链接
+        footer_layout = QHBoxLayout()
+        info_label = QLabel(
+            "<span style='color: #666; font-size: 10pt;'>"
+            "<b>DJI Batch LUTer</b> - 大疆全系列视频批量色彩还原工具<br>"
+            "支持 D-Log / D-Log M 还原与官方风格化调色滤镜"
+            "</span>"
+        )
+        
+        repo_url = "https://github.com/tianwen42/DJI_Batch_LUTer"
+        repo_label = QLabel(f'<a href="{repo_url}" style="color: #0078d4; text-decoration: none; font-size: 10pt; font-weight: bold;">📦 开源主页 & 提交反馈</a>')
+        repo_label.setOpenExternalLinks(True)
+        repo_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        
+        footer_layout.addWidget(info_label)
+        footer_layout.addStretch()
+        footer_layout.addWidget(repo_label)
+        layout.addSpacing(10)
+        layout.addLayout(footer_layout)
 
         # 初始化下拉框内容 (默认选中 Action 4 的还原配置)
         if self.device_combo.count() > 0:

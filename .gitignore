@@ -40,11 +40,15 @@ ffmpeg/
 # 忽略运行时生成的配置
 dji_luter_config.json
 dji_export_config.json
-# 忽略素材和导出目录下的文件，但保留目录本身
-RAW/*
-!RAW/.gitkeep
-EXPORT/*
-!EXPORT/.gitkeep
+# 忽略素材和导出目录下的所有文件 (不推送到 GitHub)
+RAW/
+EXPORT/
+
+# 忽略打包生成的压缩包和工具
+*.zip
+upx.exe
+release_*/
+DJI_Batch_LUTer_*/
 
 # Log files
 *.log
