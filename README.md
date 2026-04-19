@@ -14,6 +14,16 @@
 - **配置持久化**: 自动记忆路径设置、选中的设备、滤镜以及编码器偏好。
 - **图形界面**: 简单易用的 PyQt6 交互界面，实时显示处理日志和进度。
 
+## 📋 支持列表
+
+| 设备系列 | 还原滤镜 (Normalization) | 调色滤镜 (Color Grading) | 说明 |
+| :--- | :--- | :--- | :--- |
+| **Osmo Action 4** | D-Log M to Rec.709 | Forest, Ice, Nature | 全系列官方调色支持 |
+| **Osmo Action 5 Pro** | D-Log M to Rec.709 | Ju, Lan, Mei, Zhu | 最新 Pro 系列滤镜支持 |
+| **Mavic 3 系列** | D-Log, D-Log M | - | 包含标准及 Vivid 还原 |
+| **Mavic 4 Pro** | D-Log, D-Log M | - | 包含标准及 Vivid 还原 |
+| **其他设备** | 自动识别子目录 | 自动识别子目录 | 支持通过 `config/` 目录扩展 |
+
 ## 📂 项目结构
 
 ```text
