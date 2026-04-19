@@ -39,7 +39,8 @@ DEFAULT_OUTPUT_DIR = BASE_DIR / "EXPORT"
 # 本地 FFmpeg 路径 (优先检查资源目录或基础目录下的 bin)
 LOCAL_FFMPEG_PATH = RESOURCE_DIR / "bin" / "ffmpeg.exe"
 # 用户自定义 FFmpeg 目录 (项目根目录下的 ffmpeg/bin/ffmpeg.exe)
-USER_FFMPEG_PATH = RESOURCE_DIR / "ffmpeg" / "bin" / "ffmpeg.exe"
+# 注意：在打包环境下，ffmpeg 目录是外部放置的，应该相对于 BASE_DIR (EXE 所在目录)
+USER_FFMPEG_PATH = BASE_DIR / "ffmpeg" / "bin" / "ffmpeg.exe"
 # Logo 路径
 LOGO_PATH = RESOURCE_DIR / "src" / "assets" / "logo_DJI Batch LUTer.jpg"
 # Icon 路径 (用于窗口图标和打包图标)
@@ -70,27 +71,31 @@ class ExportWorker(QRunnable):
         output_file = self.output_dir / f"{self.video_path.stem}_Rec709.mp4"
         self.signals.log.emit(f"[{get_timestamp()}] <b style='color: #0078d4;'>[处理中]</b> {self.video_path.name}")
         
-        cmd = [self.ffmpeg_path]
-        cmd += ["-i", str(self.video_path.absolute())]
-        
-        # FFmpeg 滤镜路径转义逻辑 (Windows 特殊处理)
-        # 1. 统一使用正斜杠
-        # 2. 冒号需要转义，例如 C\:
-        # 3. 路径两端使用单引号包裹
-        abs_path = str(Path(self.lut_path_ffmpeg).absolute()).replace("\\", "/")
-        safe_lut_path = abs_path.replace(":", "\\:")
-        cmd += ["-vf", f"format=yuv420p,lut3d='{safe_lut_path}'"]
+        # 基础命令构建函数
+        def get_ffmpeg_cmd(encoder):
+            cmd = [self.ffmpeg_path]
+            cmd += ["-i", str(self.video_path.absolute())]
+            
+            # FFmpeg 滤镜路径转义逻辑 (Windows 特殊处理)
+            abs_path = str(Path(self.lut_path_ffmpeg).absolute()).replace("\\", "/")
+            safe_lut_path = abs_path.replace(":", "\\:")
+            cmd += ["-vf", f"format=yuv420p,lut3d='{safe_lut_path}'"]
 
-        if self.encoder_type == "NVIDIA (h264_nvenc)":
-            cmd += ["-c:v", "h264_nvenc", "-preset", "fast", "-b:v", "20M"]
-        elif self.encoder_type == "Intel (h264_qsv)":
-            cmd += ["-c:v", "h264_qsv", "-preset", "fast", "-b:v", "20M"]
-        elif self.encoder_type == "AMD (h264_amf)":
-            cmd += ["-c:v", "h264_amf", "-b:v", "20M"]
-        else: # CPU
-            cmd += ["-c:v", "libx264", "-preset", "fast", "-crf", "18"]
+            if encoder == "NVIDIA (h264_nvenc)":
+                cmd += ["-c:v", "h264_nvenc", "-preset", "fast", "-b:v", "20M"]
+            elif encoder == "Intel (h264_qsv)":
+                cmd += ["-c:v", "h264_qsv", "-preset", "fast", "-b:v", "20M"]
+            elif encoder == "AMD (h264_amf)":
+                cmd += ["-c:v", "h264_amf", "-b:v", "20M"]
+            else: # CPU
+                cmd += ["-c:v", "libx264", "-preset", "fast", "-crf", "18"]
 
-        cmd += ["-c:a", "copy", str(output_file.absolute()), "-y"]
+            cmd += ["-c:a", "copy", str(output_file.absolute()), "-y"]
+            return cmd
+
+        # 尝试执行
+        current_encoder = self.encoder_type
+        cmd = get_ffmpeg_cmd(current_encoder)
         
         try:
             startupinfo = None
@@ -98,8 +103,18 @@ class ExportWorker(QRunnable):
                 startupinfo = subprocess.STARTUPINFO()
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             
+            # 第一次尝试
             process = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='ignore', startupinfo=startupinfo)
             
+            # 如果是硬件编码器失败，尝试回退到 CPU
+            if process.returncode != 0 and current_encoder != "CPU (libx264)":
+                error_output = process.stderr.lower()
+                if "error while opening encoder" in error_output or "driver does not support" in error_output or "nvenc" in error_output or "qsv" in error_output or "amf" in error_output:
+                    self.signals.log.emit(f"<span style='color: #ffc107;'>   ⚠️ 硬件加速失败 (可能是驱动版本过低)，正在回退到 CPU 模式...</span>")
+                    current_encoder = "CPU (libx264)"
+                    cmd = get_ffmpeg_cmd(current_encoder)
+                    process = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='ignore', startupinfo=startupinfo)
+
             if process.returncode == 0:
                 self.signals.log.emit(f"<span style='color: #28a745;'>   ✅ 成功导出: {output_file.name}</span>")
                 self.signals.finished.emit(self.video_path.name, True)

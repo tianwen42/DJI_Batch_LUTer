@@ -5,7 +5,7 @@ import urllib.request
 from pathlib import Path
 
 def setup_ffmpeg():
-    print("🚀 开始自动下载并配置 FFmpeg 基础版...")
+    print("🚀 开始自动下载并配置 FFmpeg 4.4.1 稳定版...")
     
     # 基础目录配置 (脚本在 src/ 下，项目根目录为 parent)
     base_dir = Path(__file__).parent.parent
@@ -23,8 +23,9 @@ def setup_ffmpeg():
         print(f"✅ FFmpeg 已存在于: {ffmpeg_exe}")
         return
 
-    # FFmpeg Essentials 下载链接 (由 gyan.dev 提供，较轻量)
-    url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+    # 使用 FFmpeg 4.4.1 稳定版 (通过 ghproxy.net 稳定加速)
+    # 该版本具有极佳的显卡驱动兼容性，适合大多数用户
+    url = "https://ghproxy.net/https://github.com/GyanD/codexffmpeg/releases/download/4.4.1/ffmpeg-4.4.1-essentials_build.zip"
     
     try:
         print(f"正在从 {url} 下载...")

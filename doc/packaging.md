@@ -25,7 +25,7 @@ python src/build.py
 ```bash
 pyinstaller --noconsole --onefile --name "DJI_Batch_LUTer" \
 --add-data "config;config" \
---add-data "ffmpeg;ffmpeg" \
+--add-data "doc;doc" \
 --add-data "src/assets;src/assets" \
 --icon=src/assets/icon.ico \
 src/DJI_Batch_LUTer.py
@@ -33,14 +33,22 @@ src/DJI_Batch_LUTer.py
 
 ### 参数说明：
 - `--noconsole`: 运行时不显示黑色的控制台窗口。
-- `--onefile`: 将所有内容打包进一个单独的 `.exe` 文件中（注意：这会增加启动时间，因为每次运行都要解压）。
-- `--add-data`: 关键步骤！必须包含 `config`（滤镜）和 `bin`（FFmpeg）目录，否则打包后的程序无法正常工作。
+- `--onefile`: 将所有内容打包进一个单独的 `.exe` 文件中。
+- `--add-data`: 关键步骤！必须包含 `config`（滤镜库）和 `src/assets`（图标资源）。
 
-## 4. 打包后的结果
+## 4. 运行环境配置 (重要)
 
-打包完成后，你会在项目目录下看到两个新文件夹：
-- **build/**: 打包过程中的临时文件（可以删除）。
-- **dist/**: 存放最终生成的 **DJI_Batch_LUTer.exe**。
+由于 FFmpeg 文件较大且属于外部依赖，建议**不要**将其打包进 EXE 内部。打包后的程序应按以下结构放置：
+
+```text
+📁 发布目录/
+├── DJI_Batch_LUTer.exe
+└── 📁 ffmpeg/
+    └── 📁 bin/
+        └── ffmpeg.exe
+```
+
+程序启动时会自动检测同级目录下的 `ffmpeg/bin/ffmpeg.exe`。
 
 ## ⚠️ 注意事项
 
