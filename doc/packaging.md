@@ -12,10 +12,10 @@ pip install pyinstaller
 
 ## 2. 一键打包脚本
 
-我已经在项目根目录下为你准备了 `build.py`。你只需要运行它，它会自动处理资源路径并生成 exe。
+我已经在 `src/` 目录下为你准备了 `build.py`。你只需要运行它，它会自动处理资源路径并生成 exe。
 
 ```bash
-python build.py
+python src/build.py
 ```
 
 ## 3. 手动打包命令
@@ -26,6 +26,7 @@ python build.py
 pyinstaller --noconsole --onefile --name "DJI_Batch_LUTer" \
 --add-data "config;config" \
 --add-data "bin;bin" \
+--add-data "ffmpeg;ffmpeg" \
 src/DJI_Batch_LUTer.py
 ```
 

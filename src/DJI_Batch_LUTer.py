@@ -38,10 +38,12 @@ DEFAULT_INPUT_DIR = BASE_DIR / "RAW"
 DEFAULT_OUTPUT_DIR = BASE_DIR / "EXPORT"
 # 本地 FFmpeg 路径 (优先检查资源目录或基础目录下的 bin)
 LOCAL_FFMPEG_PATH = RESOURCE_DIR / "bin" / "ffmpeg.exe"
+# 用户自定义 FFmpeg 目录 (项目根目录下的 ffmpeg/bin/ffmpeg.exe)
+USER_FFMPEG_PATH = RESOURCE_DIR / "ffmpeg" / "bin" / "ffmpeg.exe"
 # Logo 路径
-LOGO_PATH = RESOURCE_DIR / "doc" / "logo_DJI Batch LUTer.jpg"
+LOGO_PATH = RESOURCE_DIR / "src" / "assets" / "logo_DJI Batch LUTer.jpg"
 # Icon 路径 (用于窗口图标和打包图标)
-ICON_PATH = RESOURCE_DIR / "doc" / "icon.ico"
+ICON_PATH = RESOURCE_DIR / "src" / "assets" / "icon.ico"
 
 def get_timestamp():
     return QDateTime.currentDateTime().toString("HH:mm:ss")
@@ -130,6 +132,14 @@ class MainWindow(QMainWindow):
         self.load_config()
         self.auto_find_ffmpeg()
         
+        # 检查 FFmpeg 是否可用
+        if not self.is_ffmpeg_valid(self.ffmpeg_edit.text()):
+            QMessageBox.warning(self, "FFmpeg 缺失", 
+                "未检测到可用的 FFmpeg！\n\n"
+                "1. 请运行项目根目录下的 'setup_ffmpeg.py' 自动下载配置。\n"
+                "2. 或手动将 ffmpeg.exe 放入 ffmpeg/bin 目录下。\n"
+                "3. 或在设置中手动指定 FFmpeg 路径。")
+        
         # 如果配置文件不存在，立即保存一份默认配置
         if not CONFIG_FILE.exists():
             self.save_config()
@@ -144,7 +154,7 @@ class MainWindow(QMainWindow):
 
         self.lut_data = {}
         
-        # 遍历设备目录 (如 config/Action 4)
+        # 1. 扫描子目录 (如 config/Action 4)
         for device_dir in DEFAULT_CONFIG_DIR.iterdir():
             if device_dir.is_dir():
                 device_name = device_dir.name
@@ -158,7 +168,7 @@ class MainWindow(QMainWindow):
                         if luts:
                             self.lut_data[device_name][type_name] = sorted(luts)
                 
-                # 如果该设备下没有任何子目录，尝试扫描直接放在设备目录下的 cube
+                # 如果该设备下直接有 cube 文件，存入 "通用 (General)"
                 direct_luts = list(device_dir.glob("*.cube"))
                 if direct_luts:
                     self.lut_data[device_name]["通用 (General)"] = sorted(direct_luts)
@@ -166,6 +176,14 @@ class MainWindow(QMainWindow):
                 # 如果该设备下最终没有任何 LUT，删除该设备项
                 if not self.lut_data[device_name]:
                     del self.lut_data[device_name]
+        
+        # 2. 扫描根目录下的 cube 文件 (归类为 "其他/未分类")
+        root_luts = list(DEFAULT_CONFIG_DIR.glob("*.cube"))
+        if root_luts:
+            others_name = "其他设备 (Others)"
+            if others_name not in self.lut_data:
+                self.lut_data[others_name] = {}
+            self.lut_data[others_name]["通用 (General)"] = sorted(root_luts)
 
     def init_ui(self):
         # 设置窗口图标
@@ -301,7 +319,14 @@ class MainWindow(QMainWindow):
         
         perf_layout.addSpacing(20)
         
-        self.ffmpeg_edit = QLineEdit(str(LOCAL_FFMPEG_PATH) if LOCAL_FFMPEG_PATH.exists() else "ffmpeg")
+        # 设置 FFmpeg 默认显示路径 (优先项目自定义目录，其次内置 bin)
+        default_ffmpeg = "ffmpeg"
+        if USER_FFMPEG_PATH.exists():
+            default_ffmpeg = str(USER_FFMPEG_PATH)
+        elif LOCAL_FFMPEG_PATH.exists():
+            default_ffmpeg = str(LOCAL_FFMPEG_PATH)
+            
+        self.ffmpeg_edit = QLineEdit(default_ffmpeg)
         ffmpeg_browse_btn = QPushButton("选择 FFmpeg...")
         ffmpeg_browse_btn.clicked.connect(self.select_ffmpeg_manually)
         perf_layout.addWidget(QLabel("FFmpeg 路径:"))
@@ -384,14 +409,14 @@ class MainWindow(QMainWindow):
             self.lut_path_edit.setText(path)
 
     def select_lut_manually(self):
-        start_dir = str(DEFAULT_CONFIG_DIR) if DEFAULT_CONFIG_DIR.exists() else str(ROOT_DIR)
+        start_dir = str(DEFAULT_CONFIG_DIR) if DEFAULT_CONFIG_DIR.exists() else str(BASE_DIR)
         file_path, _ = QFileDialog.getOpenFileName(self, "手动选择 LUT 文件", start_dir, "LUT Files (*.cube)")
         if file_path:
             self.lut_path_edit.setText(file_path)
             self.save_config()
 
     def select_ffmpeg_manually(self):
-        start_dir = str(ROOT_DIR)
+        start_dir = str(BASE_DIR)
         file_path, _ = QFileDialog.getOpenFileName(self, "手动选择 FFmpeg", start_dir, "FFmpeg (ffmpeg.exe);;All Files (*)")
         if file_path:
             self.ffmpeg_edit.setText(file_path)
@@ -399,7 +424,7 @@ class MainWindow(QMainWindow):
             self.detect_available_encoders(file_path)
 
     def select_dir(self, line_edit):
-        start_dir = line_edit.text() if line_edit.text() else str(ROOT_DIR)
+        start_dir = line_edit.text() if line_edit.text() else str(BASE_DIR)
         dir_path = QFileDialog.getExistingDirectory(self, "选择目录", start_dir)
         if dir_path:
             line_edit.setText(dir_path)
@@ -426,7 +451,14 @@ class MainWindow(QMainWindow):
             return False
 
     def auto_find_ffmpeg(self):
-        # 1. 检查本项目 bin 目录
+        # 1. 优先检查用户自定义的 ffmpeg 目录
+        if USER_FFMPEG_PATH.exists() and self.is_ffmpeg_valid(str(USER_FFMPEG_PATH)):
+            self.ffmpeg_edit.setText(str(USER_FFMPEG_PATH))
+            self.log_display.append(f"✅ 使用本地自定义 FFmpeg: {USER_FFMPEG_PATH}")
+            self.detect_available_encoders(str(USER_FFMPEG_PATH))
+            return
+
+        # 2. 检查本项目内置 bin 目录
         if LOCAL_FFMPEG_PATH.exists() and self.is_ffmpeg_valid(str(LOCAL_FFMPEG_PATH)):
             self.ffmpeg_edit.setText(str(LOCAL_FFMPEG_PATH))
             self.log_display.append(f"✅ 使用项目内置 FFmpeg: {LOCAL_FFMPEG_PATH}")

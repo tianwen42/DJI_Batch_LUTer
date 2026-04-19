@@ -33,6 +33,7 @@ dist/
 
 # Project Specific
 bin/
+ffmpeg/
 *.json
 !requirements.txt
 !package.json

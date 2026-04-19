@@ -1,6 +1,11 @@
 # DJI Batch LUTer
 
-这是一个专门为大疆 (DJI) 全系列设备开发的视频批量转换工具。它可以将 Action、Mavic、Air 等系列录制的 D-Log / D-Log M 原始素材，通过官方 LUT 快速还原为标准 Rec.709 色彩，并支持应用各类官方特定的调色滤镜。
+这是一个专门为大疆 (DJI) 全系列设备开发的视频批量转换工具。它可以将 Action、Mavic、Air、Pocket 等系列录制的 D-Log / D-Log M 原始素材，通过官方 LUT 快速还原为标准 Rec.709 色彩，并支持应用各类官方特定的调色滤镜。
+
+目前支持的设备包括但不限于：
+- **Action 系列**: Action 4, Action 5 Pro, Action 6
+- **Pocket 系列**: Pocket 3, Pocket 4, Pocket 6
+- **Mavic 系列**: Mavic 3, Mavic 4 Pro
 
 ![Main Interface](doc/ScreenShot_2026-04-19_145010_892.png)
 
@@ -30,28 +35,32 @@
 
 ```text
 DJI/
-├── bin/                  # 存放本地 FFmpeg 运行文件 (可选)
 ├── config/               # 存放 DJI 官方及自定义 LUT 文件 (*.cube)
 │   ├── Action 4/         # 按设备系列分类
 │   │   ├── Normalization/ # 还原滤镜 (如 D-Log M to Rec.709)
 │   │   └── Color Grading/ # 调色滤镜
 │   ├── Action 5 Pro/
 │   └── Mavic 3/          # 其他设备系列...
-├── doc/                  # 项目详细文档
-│   └── hardware_acceleration.md # 硬件加速指南
+├── doc/                  # 项目说明文档
+│   ├── QA.md             # 硬件加速常见问题 (Q&A)
+│   └── packaging.md      # 项目打包指南
 ├── src/
-│   └── DJI_Batch_LUTer.py # 图形界面主程序 (推荐使用)
+│   ├── DJI_Batch_LUTer.py # 图形界面主程序
+│   ├── setup_ffmpeg.py    # FFmpeg 自动配置脚本
+│   ├── build.py           # 一键打包脚本
+│   └── assets/            # 程序图标及 Logo 资源
 ├── RAW/                  # 默认原始素材存放目录
 ├── EXPORT/               # 默认导出视频存放目录
 ├── README.md             # 项目说明文档
 ├── requirements.txt      # Python 依赖包列表
+├── config.example.json   # 配置文件模板
 └── dji_luter_config.json # 自动生成的配置文件 (记住用户设置)
 ```
 
 ## 📖 详细文档
 
 更多关于本工具的使用细节，请参阅：
-- [硬件加速指南](doc/hardware_acceleration.md)
+- [硬件加速常见问题 (Q&A)](doc/QA.md)
 - [项目打包指南](doc/packaging.md)
 
 ## 🚀 快速开始
@@ -61,7 +70,8 @@ DJI/
 确保你的电脑已安装：
 
 - **Python 3.10+**
-- **FFmpeg**: 建议将 `ffmpeg.exe` 添加到系统环境变量中。本工具也会自动尝试定位本地已安装的 FFmpeg。
+- **FFmpeg**: 建议将 `ffmpeg.exe` 添加到系统环境变量中。
+- **本地 FFmpeg (推荐)**: 运行 `python src/setup_ffmpeg.py` 可自动下载并配置轻量级 FFmpeg 基础版到 `ffmpeg/bin/` 目录下。本工具会优先尝试从该位置调用。
 
 ### 2. 安装依赖
 
@@ -110,4 +120,5 @@ python src/DJI_Batch_LUTer.py
 - 如果处理失败，请检查 FFmpeg 路径是否正确。
 - 本工具已针对 10-bit 素材做了 8-bit 编码兼容性优化。
 - 建议定期将最新的官方 LUT 文件放入 `assets/luts` 目录以获得最佳支持。
+- 我只有一个Dji action4，其他系列文件未测试。
 
