@@ -6,7 +6,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLineEdit, QLabel, QFileDialog, QTextEdit, 
                              QProgressBar, QMessageBox, QSpinBox, QComboBox, QGroupBox)
-from PyQt6.QtCore import Qt, QObject, QRunnable, QThreadPool, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import Qt, QObject, QRunnable, QThreadPool, pyqtSignal, pyqtSlot, QDateTime
 
 # 项目根目录
 ROOT_DIR = Path(__file__).parent.parent
@@ -18,6 +18,11 @@ DEFAULT_CONFIG_DIR = ROOT_DIR / "config"
 DEFAULT_INPUT_DIR = ROOT_DIR / "RAW"
 # 默认导出目录
 DEFAULT_OUTPUT_DIR = ROOT_DIR / "EXPORT"
+# 本地 FFmpeg 路径
+LOCAL_FFMPEG_PATH = ROOT_DIR / "bin" / "ffmpeg.exe"
+
+def get_timestamp():
+    return QDateTime.currentDateTime().toString("HH:mm:ss")
 
 # 信号类，用于在线程间通信
 class WorkerSignals(QObject):
@@ -39,16 +44,12 @@ class ExportWorker(QRunnable):
     @pyqtSlot()
     def run(self):
         output_file = self.output_dir / f"{self.video_path.stem}_Rec709.mp4"
-        self.signals.log.emit(f"🚀 开始处理: {self.video_path.name}")
+        self.signals.log.emit(f"[{get_timestamp()}] <b style='color: #0078d4;'>[处理中]</b> {self.video_path.name}")
         
         cmd = [self.ffmpeg_path]
         cmd += ["-i", str(self.video_path.absolute())]
         
         # 更加稳健的滤镜路径处理
-        # ffmpeg 滤镜字符串中的路径转义规则：
-        # 1. 反斜杠转为正斜杠
-        # 2. 冒号转义为 \:
-        # 3. 整个路径包裹在单引号中
         safe_lut_path = str(Path(self.lut_path_ffmpeg).absolute()).replace("\\", "/").replace(":", "\\:")
         cmd += ["-vf", f"format=yuv420p,lut3d='{safe_lut_path}'"]
 
@@ -63,11 +64,7 @@ class ExportWorker(QRunnable):
 
         cmd += ["-c:a", "copy", str(output_file.absolute()), "-y"]
         
-        # 打印完整命令到日志以便调试
-        self.signals.log.emit(f"📝 执行命令: {' '.join(cmd)}")
-        
         try:
-            # 使用 startupinfo 隐藏控制台窗口 (Windows)
             startupinfo = None
             if os.name == 'nt':
                 startupinfo = subprocess.STARTUPINFO()
@@ -76,12 +73,16 @@ class ExportWorker(QRunnable):
             process = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='ignore', startupinfo=startupinfo)
             
             if process.returncode == 0:
-                self.signals.log.emit(f"   ✅ 成功: {output_file.name}")
+                self.signals.log.emit(f"<span style='color: #28a745;'>   ✅ 成功导出: {output_file.name}</span>")
+                self.signals.finished.emit(self.video_path.name, True)
             else:
-                error_msg = process.stderr if process.stderr else "未知错误 (无错误输出)"
-                self.signals.log.emit(f"   ❌ 失败: {self.video_path.name}\n错误详情: {error_msg}")
+                error_msg = process.stderr if process.stderr else "未知错误"
+                self.signals.log.emit(f"<span style='color: #dc3545;'>   ❌ 失败: {self.video_path.name}</span>")
+                self.signals.log.emit(f"<small style='color: #666;'>      原因: {error_msg.strip()}</small>")
+                self.signals.finished.emit(self.video_path.name, False)
         except Exception as e:
-            self.signals.log.emit(f"   ❌ 意外错误: {self.video_path.name} - {str(e)}")
+            self.signals.log.emit(f"<span style='color: #dc3545;'>   ❌ 意外错误: {str(e)}</span>")
+            self.signals.finished.emit(self.video_path.name, False)
         
         self.signals.progress.emit()
 
@@ -327,7 +328,12 @@ class MainWindow(QMainWindow):
     def auto_find_ffmpeg(self):
         if self.ffmpeg_edit.text() != "ffmpeg":
             return
-        paths = [r"C:\Program Files\EVCapture\ffmpeg.exe", "ffmpeg"]
+        # 优先级：本地 bin 目录 > EVCapture 目录 > 系统环境变量
+        paths = [
+            str(LOCAL_FFMPEG_PATH),
+            r"C:\Program Files\EVCapture\ffmpeg.exe",
+            "ffmpeg"
+        ]
         for p in paths:
             try:
                 res = subprocess.run([p, "-version"], capture_output=True, text=True)
@@ -404,10 +410,12 @@ class MainWindow(QMainWindow):
         self.completed_tasks += 1
         val = int((self.completed_tasks / self.total_tasks) * 100)
         self.progress_bar.setValue(val)
+        
         if self.completed_tasks == self.total_tasks:
             self.start_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
-            self.log_display.append("\n🏆 所有任务已完成！")
+            self.log_display.append("<br><b style='color: #28a745; font-size: 14px;'>🏆 批量转换任务全部完成！</b>")
+            self.log_display.append(f"项目已保存在: <a href='file:///{self.output_edit.text()}'>{self.output_edit.text()}</a>")
             QMessageBox.information(self, "完成", f"已成功处理 {self.total_tasks} 个视频。")
 
     def start_export(self):
@@ -440,10 +448,19 @@ class MainWindow(QMainWindow):
         self.completed_tasks = 0
         self.progress_bar.setValue(0)
         self.log_display.clear()
+        
+        # 打印友好的启动信息
+        self.log_display.append(f"<b style='font-size: 14px; color: #0078d4;'>🚀 批量转换任务启动</b>")
+        self.log_display.append(f"📅 启动时间: {QDateTime.currentDateTime().toString('yyyy-MM-dd HH:mm:ss')}")
+        self.log_display.append(f"🎬 使用滤镜: {Path(lut_path).name}")
+        self.log_display.append(f"📦 待处理视频: {self.total_tasks} 个")
+        self.log_display.append(f"🛠️ 编码器: {encoder_type}")
+        self.log_display.append(f"⚙️ 并行数: {max_threads}")
+        self.log_display.append("<hr>")
+
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.threadpool.setMaxThreadCount(max_threads)
-        self.log_display.append(f"🚀 准备导出 {self.total_tasks} 个文件")
 
         # 将原始路径传给 Worker，在 Worker 内部处理转义
         for video in video_files:

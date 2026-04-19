@@ -7,6 +7,7 @@ venv/
 ENV/
 
 # Project Specific
+bin/
 dji_luter_config.json
 dji_export_config.json
 EXPORT/
