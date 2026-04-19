@@ -2,6 +2,8 @@
 
 这是一个专门为大疆 (DJI) 全系列设备开发的视频批量转换工具。它可以将 Action、Mavic、Air 等系列录制的 D-Log / D-Log M 原始素材，通过官方 LUT 快速还原为标准 Rec.709 色彩，并支持应用各类官方特定的调色滤镜。
 
+![Main Interface](doc/ScreenShot_2026-04-19_145010_892.png)
+
 ## 🌟 核心功能
 
 - **DJI 全系列色彩还原**: 
