@@ -7,7 +7,7 @@
 - **Pocket 系列**: Pocket 3, Pocket 4, Pocket 6
 - **Mavic 系列**: Mavic 3, Mavic 4 Pro
 
-![Main Interface](doc/ScreenShot_2026-04-19_173554_640.png)
+![Main Interface](doc/mainWindow.png)
 
 ## 🌟 核心功能
 
