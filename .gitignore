@@ -52,6 +52,7 @@ EXPORT/*
 upx.exe
 release_*/
 DJI_Batch_LUTer_*/
+test_isolated/
 
 # Log files
 *.log
