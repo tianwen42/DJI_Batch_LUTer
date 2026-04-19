@@ -60,13 +60,14 @@ class WorkerSignals(QObject):
 
 # 单个视频处理任务
 class ExportWorker(QRunnable):
-    def __init__(self, video_path, output_dir, lut_path_ffmpeg, ffmpeg_path, encoder_type):
+    def __init__(self, video_path, output_dir, lut_path_ffmpeg, ffmpeg_path, encoder_type, quality_mode):
         super().__init__()
         self.video_path = Path(video_path)
         self.output_dir = Path(output_dir)
         self.lut_path_ffmpeg = lut_path_ffmpeg
         self.ffmpeg_path = ffmpeg_path
         self.encoder_type = encoder_type
+        self.quality_mode = quality_mode
         self.signals = WorkerSignals()
 
     @pyqtSlot()
@@ -84,14 +85,25 @@ class ExportWorker(QRunnable):
             safe_lut_path = abs_path.replace(":", "\\:")
             cmd += ["-vf", f"format=yuv420p,lut3d='{safe_lut_path}'"]
 
+            # 根据画质选择调整参数
+            if "原画质" in self.quality_mode:
+                # 硬件编码使用 150M 码率，CPU 使用 CRF 14 (视觉无损级别)
+                gpu_bitrate, cpu_preset, cpu_crf = "150M", "slow", "14"
+            elif "高质量" in self.quality_mode:
+                gpu_bitrate, cpu_preset, cpu_crf = "80M", "medium", "16"
+            elif "极速" in self.quality_mode:
+                gpu_bitrate, cpu_preset, cpu_crf = "15M", "ultrafast", "24"
+            else: # 标准
+                gpu_bitrate, cpu_preset, cpu_crf = "40M", "medium", "20"
+
             if encoder == "NVIDIA (h264_nvenc)":
-                cmd += ["-c:v", "h264_nvenc", "-preset", "fast", "-b:v", "20M"]
+                cmd += ["-c:v", "h264_nvenc", "-preset", "p4", "-b:v", gpu_bitrate] # p4 为平衡预设
             elif encoder == "Intel (h264_qsv)":
-                cmd += ["-c:v", "h264_qsv", "-preset", "fast", "-b:v", "20M"]
+                cmd += ["-c:v", "h264_qsv", "-preset", "balanced", "-b:v", gpu_bitrate]
             elif encoder == "AMD (h264_amf)":
-                cmd += ["-c:v", "h264_amf", "-b:v", "20M"]
+                cmd += ["-c:v", "h264_amf", "-b:v", gpu_bitrate]
             else: # CPU
-                cmd += ["-c:v", "libx264", "-preset", "fast", "-crf", "18"]
+                cmd += ["-c:v", "libx264", "-preset", cpu_preset, "-crf", cpu_crf]
 
             cmd += ["-c:a", "copy", str(output_file.absolute()), "-y"]
             return cmd
@@ -340,6 +352,20 @@ class MainWindow(QMainWindow):
         perf_layout.addWidget(self.concurrency_spin)
         
         perf_layout.addSpacing(20)
+
+        # 新增画质选择
+        self.quality_combo = QComboBox()
+        self.quality_combo.addItems([
+            "原画质 (Original Quality)",
+            "高质量 (High Quality)", 
+            "标准 (Standard)", 
+            "极速 (Fastest)"
+        ])
+        self.quality_combo.setCurrentIndex(0) # 默认原画质
+        perf_layout.addWidget(QLabel("画质:"))
+        perf_layout.addWidget(self.quality_combo)
+        
+        perf_layout.addSpacing(20)
         
         # 设置 FFmpeg 默认显示路径 (优先项目自定义目录，其次内置 bin)
         default_ffmpeg = "ffmpeg"
@@ -577,6 +603,9 @@ class MainWindow(QMainWindow):
                     if config.get("encoder"):
                         self.encoder_combo.setCurrentText(config.get("encoder"))
                     
+                    if config.get("quality"):
+                        self.quality_combo.setCurrentText(config.get("quality"))
+                    
                     self.concurrency_spin.setValue(config.get("concurrency", 2))
                     
                     # FFmpeg 路径检查
@@ -594,6 +623,7 @@ class MainWindow(QMainWindow):
             "lut_type": self.lut_type_combo.currentText(),
             "lut_path": self.lut_path_edit.text(),
             "encoder": self.encoder_combo.currentText(),
+            "quality": self.quality_combo.currentText(),
             "concurrency": self.concurrency_spin.value(),
             "ffmpeg_path": self.ffmpeg_edit.text()
         }
@@ -625,6 +655,7 @@ class MainWindow(QMainWindow):
         ffmpeg_path = self.ffmpeg_edit.text()
         encoder_type = self.encoder_combo.currentText()
         max_threads = self.concurrency_spin.value()
+        quality_mode = self.quality_combo.currentText()
 
         if not all([input_dir, output_dir, lut_path]):
             QMessageBox.warning(self, "提示", "请检查路径填写是否完整。")
@@ -654,6 +685,7 @@ class MainWindow(QMainWindow):
         self.log_display.append(f"🎬 使用滤镜: {Path(lut_path).name}")
         self.log_display.append(f"📦 待处理视频: {self.total_tasks} 个")
         self.log_display.append(f"🛠️ 编码器: {encoder_type}")
+        self.log_display.append(f"✨ 画质模式: {quality_mode}")
         self.log_display.append(f"⚙️ 并行数: {max_threads}")
         self.log_display.append("<hr>")
 
@@ -663,7 +695,7 @@ class MainWindow(QMainWindow):
 
         # 将原始路径传给 Worker，在 Worker 内部处理转义
         for video in video_files:
-            worker = ExportWorker(video, output_dir, lut_path, ffmpeg_path, encoder_type)
+            worker = ExportWorker(video, output_dir, lut_path, ffmpeg_path, encoder_type, quality_mode)
             worker.signals.log.connect(self.log_display.append)
             worker.signals.progress.connect(self.update_progress)
             self.threadpool.start(worker)
