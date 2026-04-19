@@ -1,4 +1,4 @@
-# DJI Batch LUTer Pro
+# DJI Batch LUTer
 
 这是一个专门为大疆 (DJI) Osmo Action 系列相机开发的视频批量转换工具。它可以将 Action 4/5 Pro 等录制的 D-Log M 原始素材，通过官方 LUT 快速还原为标准 Rec.709 色彩，或者应用特定的调色滤镜，并支持硬件加速导出。
 

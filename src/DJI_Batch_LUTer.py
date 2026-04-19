@@ -70,7 +70,7 @@ class ExportWorker(QRunnable):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("DJI Batch LUTer Pro")
+        self.setWindowTitle("DJI Batch LUTer")
         self.setMinimumWidth(850)
         self.setMinimumHeight(750)
         
