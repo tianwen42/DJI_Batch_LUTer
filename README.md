@@ -6,7 +6,7 @@
 
 ## 🌟 核心功能
 
-- **DJI 全系列色彩还原**: 
+- **DJI 全系列色彩还原**:
   - **Action 系列**: 支持 Action 4/5 Pro 等 D-Log M 还原。
   - **无人机系列**: 支持 Mavic、Air、Mini 等系列的 D-Log / D-Log M 色彩还原。
 - **官方调色滤镜支持**: 支持加载 DJI 官方发布的各类风格化调色滤镜（如 Forest, Ice, Nature 等）。
@@ -18,13 +18,13 @@
 
 ## 📋 支持列表
 
-| 设备系列 | 还原滤镜 (Normalization) | 调色滤镜 (Color Grading) | 说明 |
-| :--- | :--- | :--- | :--- |
-| **Osmo Action 4** 📸 | ✅ D-Log M to Rec.709 | ✅ Forest, Ice, Nature | 全系列官方调色支持 |
-| **Osmo Action 5 Pro** 📸 | ✅ D-Log M to Rec.709 | ✅ Ju, Lan, Mei, Zhu | 最新 Pro 系列滤镜支持 |
-| **Mavic 3 系列** 🛸 | ✅ D-Log, D-Log M | - | 包含标准及 Vivid 还原 |
-| **Mavic 4 Pro** 🛸 | ✅ D-Log, D-Log M | - | 包含标准及 Vivid 还原 |
-| **其他设备** 📁 | 自动识别子目录 | 自动识别子目录 | 支持通过 `config/` 目录扩展 |
+| 设备系列                     | 还原滤镜 (Normalization) | 调色滤镜 (Color Grading)  | 说明                  |
+| :----------------------- | :------------------- | :-------------------- | :------------------ |
+| **Osmo Action 4** 📸     | ✅ D-Log M to Rec.709 | ✅ Forest, Ice, Nature | 全系列官方调色支持           |
+| **Osmo Action 5 Pro** 📸 | ✅ D-Log M to Rec.709 | ✅ Ju, Lan, Mei, Zhu   | 最新 Pro 系列滤镜支持       |
+| **Mavic 3 系列** 🛸        | ✅ D-Log, D-Log M     | -                     | 包含标准及 Vivid 还原      |
+| **Mavic 4 Pro** 🛸       | ✅ D-Log, D-Log M     | -                     | 包含标准及 Vivid 还原      |
+| **其他设备** 📁              | 自动识别子目录              | 自动识别子目录               | 支持通过 `config/` 目录扩展 |
 
 ## 📂 项目结构
 
@@ -50,23 +50,28 @@ DJI/
 ## 📖 详细文档
 
 更多关于本工具的使用细节，请参阅：
-- [硬件加速指南](doc/hardware_acceleration.md)
 
+- [硬件加速指南](doc/hardware_acceleration.md)
 
 ## 🚀 快速开始
 
 ### 1. 环境准备
+
 确保你的电脑已安装：
+
 - **Python 3.10+**
 - **FFmpeg**: 建议将 `ffmpeg.exe` 添加到系统环境变量中。本工具也会自动尝试定位本地已安装的 FFmpeg。
 
 ### 2. 安装依赖
+
 在项目根目录下运行：
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ### 3. 运行程序
+
 ```bash
 python src/DJI_Batch_LUTer.py
 ```
@@ -74,7 +79,7 @@ python src/DJI_Batch_LUTer.py
 ## 🛠️ 使用说明
 
 1. **选择素材**: 将视频放入 `RAW` 目录，或点击按钮手动选择目录。
-2. **选择设备与滤镜**: 
+2. **选择设备与滤镜**:
    - 在“设备”下拉框选择你的相机型号（如 Action 5 Pro）。
    - 在“类型”下拉框选择“还原”或“调色”。
    - 在“滤镜列表”中选择具体的滤镜文件。
@@ -83,6 +88,8 @@ python src/DJI_Batch_LUTer.py
 4. **开始导出**: 点击按钮，等待进度条走完。
 
 ## 📝 注意事项
+
 - 如果处理失败，请检查 FFmpeg 路径是否正确。
 - 本工具已针对 10-bit 素材做了 8-bit 编码兼容性优化。
 - 建议定期将最新的官方 LUT 文件放入 `assets/luts` 目录以获得最佳支持。
+
