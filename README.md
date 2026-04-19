@@ -23,6 +23,8 @@ DJI/
 │   │   └── Color Grading/ # 调色滤镜
 │   ├── Action 5 Pro/
 │   └── Mavic 3/          # 其他设备系列...
+├── doc/                  # 项目详细文档
+│   └── hardware_acceleration.md # 硬件加速指南
 ├── src/
 │   └── DJI_Batch_LUTer.py # 图形界面主程序 (推荐使用)
 ├── RAW/                  # 默认原始素材存放目录
@@ -31,6 +33,12 @@ DJI/
 ├── requirements.txt      # Python 依赖包列表
 └── dji_luter_config.json # 自动生成的配置文件 (记住用户设置)
 ```
+
+## 📖 详细文档
+
+更多关于本工具的使用细节，请参阅：
+- [硬件加速指南](doc/hardware_acceleration.md)
+
 
 ## 🚀 快速开始
 
