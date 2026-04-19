@@ -2,16 +2,51 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 .venv/
 venv/
 ENV/
 
+# PyInstaller
+#  通常这些文件夹是打包过程生成的临时文件
+build/
+dist/
+# 如果你不希望提交 spec 文件，可以取消注释
+# *.spec
+
 # Project Specific
 bin/
+*.json
+!requirements.txt
+!package.json
+# 忽略运行时生成的配置
 dji_luter_config.json
 dji_export_config.json
-EXPORT/
-RAW/
+# 忽略素材和导出目录下的文件，但保留目录本身
+RAW/*
+!RAW/.gitkeep
+EXPORT/*
+!EXPORT/.gitkeep
+
+# Log files
+*.log
 
 # OS
 .DS_Store
@@ -21,3 +56,5 @@ Thumbs.db
 .vscode/
 .idea/
 .trae/
+*.swp
+*.swo

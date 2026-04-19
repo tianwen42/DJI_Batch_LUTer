@@ -7,19 +7,41 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QPushButton, QLineEdit, QLabel, QFileDialog, QTextEdit, 
                              QProgressBar, QMessageBox, QSpinBox, QComboBox, QGroupBox)
 from PyQt6.QtCore import Qt, QObject, QRunnable, QThreadPool, pyqtSignal, pyqtSlot, QDateTime
+from PyQt6.QtGui import QIcon, QPixmap
 
-# 项目根目录
-ROOT_DIR = Path(__file__).parent.parent
-# 配置文件路径
-CONFIG_FILE = ROOT_DIR / "dji_luter_config.json"
+# 路径处理逻辑：兼容脚本运行与 PyInstaller 打包
+def get_base_path():
+    """获取程序运行的基础目录 (EXE 所在目录或脚本所在目录)"""
+    if hasattr(sys, '_MEIPASS'):
+        # 打包后的 EXE 运行环境，sys.executable 是 EXE 路径
+        return Path(sys.executable).parent
+    return Path(__file__).parent.parent
+
+def get_resource_path(relative_path):
+    """获取资源文件路径 (兼容打包后的临时目录)"""
+    if hasattr(sys, '_MEIPASS'):
+        return Path(sys._MEIPASS) / relative_path
+    return Path(__file__).parent.parent / relative_path
+
+# 基础目录 (用于存放配置文件、默认导出目录等)
+BASE_DIR = get_base_path()
+# 资源目录 (用于读取内置的 LUT 滤镜)
+RESOURCE_DIR = get_resource_path("")
+
+# 配置文件路径 (始终放在 EXE/脚本同级目录)
+CONFIG_FILE = BASE_DIR / "dji_luter_config.json"
 # 默认配置目录 (包含所有 LUT)
-DEFAULT_CONFIG_DIR = ROOT_DIR / "config"
+DEFAULT_CONFIG_DIR = RESOURCE_DIR / "config"
 # 默认素材目录
-DEFAULT_INPUT_DIR = ROOT_DIR / "RAW"
+DEFAULT_INPUT_DIR = BASE_DIR / "RAW"
 # 默认导出目录
-DEFAULT_OUTPUT_DIR = ROOT_DIR / "EXPORT"
-# 本地 FFmpeg 路径
-LOCAL_FFMPEG_PATH = ROOT_DIR / "bin" / "ffmpeg.exe"
+DEFAULT_OUTPUT_DIR = BASE_DIR / "EXPORT"
+# 本地 FFmpeg 路径 (优先检查资源目录或基础目录下的 bin)
+LOCAL_FFMPEG_PATH = RESOURCE_DIR / "bin" / "ffmpeg.exe"
+# Logo 路径
+LOGO_PATH = RESOURCE_DIR / "doc" / "logo_DJI Batch LUTer.jpg"
+# Icon 路径 (用于窗口图标和打包图标)
+ICON_PATH = RESOURCE_DIR / "doc" / "icon.ico"
 
 def get_timestamp():
     return QDateTime.currentDateTime().toString("HH:mm:ss")
@@ -49,8 +71,12 @@ class ExportWorker(QRunnable):
         cmd = [self.ffmpeg_path]
         cmd += ["-i", str(self.video_path.absolute())]
         
-        # 更加稳健的滤镜路径处理
-        safe_lut_path = str(Path(self.lut_path_ffmpeg).absolute()).replace("\\", "/").replace(":", "\\:")
+        # FFmpeg 滤镜路径转义逻辑 (Windows 特殊处理)
+        # 1. 统一使用正斜杠
+        # 2. 冒号需要转义，例如 C\:
+        # 3. 路径两端使用单引号包裹
+        abs_path = str(Path(self.lut_path_ffmpeg).absolute()).replace("\\", "/")
+        safe_lut_path = abs_path.replace(":", "\\:")
         cmd += ["-vf", f"format=yuv420p,lut3d='{safe_lut_path}'"]
 
         if self.encoder_type == "NVIDIA (h264_nvenc)":
@@ -104,6 +130,10 @@ class MainWindow(QMainWindow):
         self.load_config()
         self.auto_find_ffmpeg()
         
+        # 如果配置文件不存在，立即保存一份默认配置
+        if not CONFIG_FILE.exists():
+            self.save_config()
+        
         self.total_tasks = 0
         self.completed_tasks = 0
 
@@ -138,9 +168,44 @@ class MainWindow(QMainWindow):
                     del self.lut_data[device_name]
 
     def init_ui(self):
+        # 设置窗口图标
+        if ICON_PATH.exists():
+            self.setWindowIcon(QIcon(str(ICON_PATH)))
+        elif LOGO_PATH.exists():
+            self.setWindowIcon(QIcon(str(LOGO_PATH)))
+
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
+
+        # 0. Logo 显示 (保持高清晰度)
+        if LOGO_PATH.exists():
+            logo_label = QLabel()
+            pixmap = QPixmap(str(LOGO_PATH))
+            
+            # 针对 High DPI 屏幕优化清晰度
+            # 增加高度到 120，并确保使用高质量缩放
+            target_height = 120
+            scaled_pixmap = pixmap.scaledToHeight(target_height, Qt.TransformationMode.SmoothTransformation)
+            
+            # 设置设备像素比，防止在高分屏下模糊
+            if hasattr(scaled_pixmap, 'setDevicePixelRatio'):
+                # 尝试获取系统的缩放倍率 (简单处理，通常为 1.0, 1.5, 2.0 等)
+                dpr = self.devicePixelRatioF()
+                if dpr > 1.0:
+                    # 如果是高分屏，我们需要一个更大尺寸的图片然后缩小显示
+                    high_res_pixmap = pixmap.scaledToHeight(int(target_height * dpr), Qt.TransformationMode.SmoothTransformation)
+                    high_res_pixmap.setDevicePixelRatio(dpr)
+                    logo_label.setPixmap(high_res_pixmap)
+                else:
+                    logo_label.setPixmap(scaled_pixmap)
+            else:
+                logo_label.setPixmap(scaled_pixmap)
+                
+            logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            # 适当增加边距
+            logo_label.setContentsMargins(0, 10, 0, 10)
+            layout.addWidget(logo_label)
 
         # 1. 目录配置
         dir_group = QGroupBox("目录配置")
@@ -218,10 +283,10 @@ class MainWindow(QMainWindow):
         
         self.encoder_combo = QComboBox()
         self.encoder_combo.addItems([
-            "CPU (libx264)", 
             "NVIDIA (h264_nvenc)", 
             "Intel (h264_qsv)", 
-            "AMD (h264_amf)"
+            "AMD (h264_amf)",
+            "CPU (libx264)"
         ])
         perf_layout.addWidget(QLabel("编码器:"))
         perf_layout.addWidget(self.encoder_combo)
@@ -230,7 +295,7 @@ class MainWindow(QMainWindow):
         
         self.concurrency_spin = QSpinBox()
         self.concurrency_spin.setRange(1, self.cpu_count)
-        self.concurrency_spin.setValue(1)
+        self.concurrency_spin.setValue(2)
         perf_layout.addWidget(QLabel("并行任务数:"))
         perf_layout.addWidget(self.concurrency_spin)
         
@@ -279,9 +344,20 @@ class MainWindow(QMainWindow):
         btn_layout.addWidget(self.open_folder_btn, 1)
         layout.addLayout(btn_layout)
 
-        # 初始化下拉框内容
+        # 初始化下拉框内容 (默认选中 Action 4 的还原配置)
         if self.device_combo.count() > 0:
+            # 优先尝试选中 Action 4
+            index = self.device_combo.findText("Action 4")
+            if index >= 0:
+                self.device_combo.setCurrentIndex(index)
+            
             self.on_device_changed(self.device_combo.currentText())
+            
+            # 优先尝试选中 Normalization
+            index = self.lut_type_combo.findText("Normalization")
+            if index >= 0:
+                self.lut_type_combo.setCurrentIndex(index)
+                self.on_lut_type_changed(self.lut_type_combo.currentText())
 
     def on_device_changed(self, device):
         self.lut_type_combo.clear()
@@ -336,37 +412,47 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.warning(self, "提示", "输出目录不存在。")
 
+    def is_ffmpeg_valid(self, path):
+        """检查 FFmpeg 路径是否有效且可运行"""
+        try:
+            startupinfo = None
+            if os.name == 'nt':
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            
+            res = subprocess.run([path, "-version"], capture_output=True, text=True, startupinfo=startupinfo)
+            return res.returncode == 0
+        except Exception:
+            return False
+
     def auto_find_ffmpeg(self):
-        # 1. 强制优先检查本项目 bin 目录
-        if LOCAL_FFMPEG_PATH.exists():
+        # 1. 检查本项目 bin 目录
+        if LOCAL_FFMPEG_PATH.exists() and self.is_ffmpeg_valid(str(LOCAL_FFMPEG_PATH)):
             self.ffmpeg_edit.setText(str(LOCAL_FFMPEG_PATH))
-            self.log_display.append(f"✅ 优先使用项目内置 FFmpeg: {LOCAL_FFMPEG_PATH}")
+            self.log_display.append(f"✅ 使用项目内置 FFmpeg: {LOCAL_FFMPEG_PATH}")
             self.detect_available_encoders(str(LOCAL_FFMPEG_PATH))
             return
 
-        # 2. 如果本地没有，则尝试从配置文件恢复
+        # 2. 尝试从配置文件恢复
         current_path = self.ffmpeg_edit.text()
-        if current_path and current_path != "ffmpeg" and os.path.exists(current_path):
+        if current_path and current_path != "ffmpeg" and os.path.exists(current_path) and self.is_ffmpeg_valid(current_path):
             self.log_display.append(f"🔍 使用配置记录的 FFmpeg: {current_path}")
             self.detect_available_encoders(current_path)
             return
 
-        # 3. 最后才尝试其他可能路径
+        # 3. 尝试其他可能路径 (优先尝试常见软件自带的稳定版)
         paths = [
             r"C:\Program Files\EVCapture\ffmpeg.exe",
-            "ffmpeg"
+            "ffmpeg",  # 系统 PATH
         ]
         for p in paths:
-            try:
-                res = subprocess.run([p, "-version"], capture_output=True, text=True)
-                if res.returncode == 0:
-                    self.ffmpeg_edit.setText(p)
-                    self.log_display.append(f"🔍 自动找到 FFmpeg: {p}")
-                    self.log_display.append(res.stdout.split('\n')[0])
-                    self.detect_available_encoders(p)
-                    break
-            except:
-                continue
+            if self.is_ffmpeg_valid(p):
+                self.ffmpeg_edit.setText(p)
+                self.log_display.append(f"🔍 自动找到可用 FFmpeg: {p}")
+                self.detect_available_encoders(p)
+                return
+        
+        self.log_display.append("<span style='color: #dc3545;'>❌ 未找到可用的 FFmpeg，请手动指定路径。</span>")
 
     def detect_available_encoders(self, ffmpeg_path):
         try:
@@ -385,8 +471,19 @@ class MainWindow(QMainWindow):
             try:
                 with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
                     config = json.load(f)
-                    self.input_edit.setText(config.get("input_dir", str(DEFAULT_INPUT_DIR)))
-                    self.output_edit.setText(config.get("output_dir", str(DEFAULT_OUTPUT_DIR)))
+                    
+                    # 检查路径是否存在，不存在则使用默认值
+                    input_dir = config.get("input_dir")
+                    if input_dir and os.path.exists(input_dir):
+                        self.input_edit.setText(input_dir)
+                    else:
+                        self.input_edit.setText(str(DEFAULT_INPUT_DIR))
+
+                    output_dir = config.get("output_dir")
+                    if output_dir and os.path.exists(output_dir):
+                        self.output_edit.setText(output_dir)
+                    else:
+                        self.output_edit.setText(str(DEFAULT_OUTPUT_DIR))
                     
                     # 恢复设备和类型选择
                     device = config.get("device")
@@ -394,18 +491,24 @@ class MainWindow(QMainWindow):
                     ltype = config.get("lut_type")
                     if ltype: self.lut_type_combo.setCurrentText(ltype)
                     
-                    # 恢复 LUT 路径
+                    # 恢复 LUT 路径 (检查是否存在)
                     lut_path = config.get("lut_path")
-                    if lut_path:
+                    if lut_path and os.path.exists(lut_path):
                         self.lut_path_edit.setText(lut_path)
                         # 如果在下拉框里，也选中它
                         index = self.lut_file_combo.findData(lut_path)
                         if index >= 0:
                             self.lut_file_combo.setCurrentIndex(index)
                     
-                    self.encoder_combo.setCurrentText(config.get("encoder", "CPU (libx264)"))
-                    self.concurrency_spin.setValue(config.get("concurrency", 1))
-                    self.ffmpeg_edit.setText(config.get("ffmpeg_path", self.ffmpeg_edit.text()))
+                    if config.get("encoder"):
+                        self.encoder_combo.setCurrentText(config.get("encoder"))
+                    
+                    self.concurrency_spin.setValue(config.get("concurrency", 2))
+                    
+                    # FFmpeg 路径检查
+                    ffmpeg_path = config.get("ffmpeg_path")
+                    if ffmpeg_path and self.is_ffmpeg_valid(ffmpeg_path):
+                        self.ffmpeg_edit.setText(ffmpeg_path)
             except:
                 pass
 

@@ -12,20 +12,23 @@ def build():
         print("❌ 错误: 未安装 pyinstaller。正在尝试为你安装...")
         subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"])
 
-    # 基础命令
+    # 基础命令 (使用 sys.executable -m PyInstaller 确保能找到命令)
     cmd = [
-        "pyinstaller",
+        sys.executable,
+        "-m", "PyInstaller",
         "--noconsole",           # 隐藏控制台
         "--onefile",             # 生成单文件
         "--name=DJI_Batch_LUTer", # 程序名称
+        "--icon=doc/icon.ico",    # 程序图标
         "--clean",               # 清理缓存
     ]
 
-    # 添加数据目录 (Windows 格式: source;dest)
-    # 注意: 即使目录为空也要包含，否则代码中 Path.exists() 会失败
-    cmd.extend(["--add-data", "config;config"])
-    cmd.extend(["--add-data", "bin;bin"])
-    cmd.extend(["--add-data", "doc;doc"])
+    # 添加数据目录 (仅当目录存在时添加)
+    # 注意: Windows 格式为 source;dest
+    data_dirs = ["config", "bin", "doc"]
+    for d in data_dirs:
+        if os.path.exists(d):
+            cmd.extend(["--add-data", f"{d};{d}"])
 
     # 主脚本路径
     cmd.append("src/DJI_Batch_LUTer.py")
@@ -33,6 +36,7 @@ def build():
     print(f"执行命令: {' '.join(cmd)}")
     
     try:
+        # 使用列表形式调用，不再需要 shell=True
         subprocess.run(cmd, check=True)
         print("\n" + "="*30)
         print("✅ 打包成功！")
