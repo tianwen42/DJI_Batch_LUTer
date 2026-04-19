@@ -51,8 +51,8 @@ DJI/
 ## 📖 详细文档
 
 更多关于本工具的使用细节，请参阅：
-
 - [硬件加速指南](doc/hardware_acceleration.md)
+- [项目打包指南](doc/packaging.md)
 
 ## 🚀 快速开始
 

@@ -337,16 +337,22 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "提示", "输出目录不存在。")
 
     def auto_find_ffmpeg(self):
-        # 如果已经通过配置文件加载了有效的路径，则不再自动查找
+        # 1. 强制优先检查本项目 bin 目录
+        if LOCAL_FFMPEG_PATH.exists():
+            self.ffmpeg_edit.setText(str(LOCAL_FFMPEG_PATH))
+            self.log_display.append(f"✅ 优先使用项目内置 FFmpeg: {LOCAL_FFMPEG_PATH}")
+            self.detect_available_encoders(str(LOCAL_FFMPEG_PATH))
+            return
+
+        # 2. 如果本地没有，则尝试从配置文件恢复
         current_path = self.ffmpeg_edit.text()
         if current_path and current_path != "ffmpeg" and os.path.exists(current_path):
-            self.log_display.append(f"✅ 使用配置的 FFmpeg: {current_path}")
+            self.log_display.append(f"🔍 使用配置记录的 FFmpeg: {current_path}")
             self.detect_available_encoders(current_path)
             return
 
-        # 优先级：本地 bin 目录 > EVCapture 目录 > 系统环境变量
+        # 3. 最后才尝试其他可能路径
         paths = [
-            str(LOCAL_FFMPEG_PATH),
             r"C:\Program Files\EVCapture\ffmpeg.exe",
             "ffmpeg"
         ]
