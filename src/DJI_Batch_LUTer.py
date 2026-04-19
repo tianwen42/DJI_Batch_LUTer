@@ -236,9 +236,12 @@ class MainWindow(QMainWindow):
         
         perf_layout.addSpacing(20)
         
-        self.ffmpeg_edit = QLineEdit("ffmpeg")
+        self.ffmpeg_edit = QLineEdit(str(LOCAL_FFMPEG_PATH) if LOCAL_FFMPEG_PATH.exists() else "ffmpeg")
+        ffmpeg_browse_btn = QPushButton("选择 FFmpeg...")
+        ffmpeg_browse_btn.clicked.connect(self.select_ffmpeg_manually)
         perf_layout.addWidget(QLabel("FFmpeg 路径:"))
         perf_layout.addWidget(self.ffmpeg_edit)
+        perf_layout.addWidget(ffmpeg_browse_btn)
         
         perf_group.setLayout(perf_layout)
         layout.addWidget(perf_group)
@@ -311,6 +314,14 @@ class MainWindow(QMainWindow):
             self.lut_path_edit.setText(file_path)
             self.save_config()
 
+    def select_ffmpeg_manually(self):
+        start_dir = str(ROOT_DIR)
+        file_path, _ = QFileDialog.getOpenFileName(self, "手动选择 FFmpeg", start_dir, "FFmpeg (ffmpeg.exe);;All Files (*)")
+        if file_path:
+            self.ffmpeg_edit.setText(file_path)
+            self.save_config()
+            self.detect_available_encoders(file_path)
+
     def select_dir(self, line_edit):
         start_dir = line_edit.text() if line_edit.text() else str(ROOT_DIR)
         dir_path = QFileDialog.getExistingDirectory(self, "选择目录", start_dir)
@@ -326,8 +337,13 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "提示", "输出目录不存在。")
 
     def auto_find_ffmpeg(self):
-        if self.ffmpeg_edit.text() != "ffmpeg":
+        # 如果已经通过配置文件加载了有效的路径，则不再自动查找
+        current_path = self.ffmpeg_edit.text()
+        if current_path and current_path != "ffmpeg" and os.path.exists(current_path):
+            self.log_display.append(f"✅ 使用配置的 FFmpeg: {current_path}")
+            self.detect_available_encoders(current_path)
             return
+
         # 优先级：本地 bin 目录 > EVCapture 目录 > 系统环境变量
         paths = [
             str(LOCAL_FFMPEG_PATH),
@@ -339,7 +355,7 @@ class MainWindow(QMainWindow):
                 res = subprocess.run([p, "-version"], capture_output=True, text=True)
                 if res.returncode == 0:
                     self.ffmpeg_edit.setText(p)
-                    self.log_display.append(f"🔍 找到 FFmpeg: {p}")
+                    self.log_display.append(f"🔍 自动找到 FFmpeg: {p}")
                     self.log_display.append(res.stdout.split('\n')[0])
                     self.detect_available_encoders(p)
                     break
