@@ -67,29 +67,38 @@ DJI/
 - [硬件加速常见问题 (Q&A)](doc/QA.md)
 - [项目打包指南](doc/packaging.md)
 
-## 🚀 快速开始
+## 🚀 快速开始 (开发者/从源码运行)
 
-### 1. 环境准备
+如果你是开发者或希望从源码运行，请遵循以下步骤：
 
-确保你的电脑已安装：
+### 1. 克隆项目 (Clone)
+```bash
+git clone https://github.com/tianwen42/DJI_Batch_LUTer.git
+cd DJI_Batch_LUTer
+```
 
-- **Python 3.10+**
-- **FFmpeg**: 建议将 `ffmpeg.exe` 添加到系统环境变量中。
-- **本地 FFmpeg (推荐)**: 运行 `python src/setup_ffmpeg.py` 可自动下载并配置轻量级 FFmpeg 基础版到 `ffmpeg/bin/` 目录下。本工具会优先尝试从该位置调用。
-
-### 2. 安装依赖
-
-在项目根目录下运行：
-
+### 2. 安装依赖 (Install)
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. 运行程序
-
+### 3. 初始化 FFmpeg (Setup)
+运行自动配置脚本，它会为你下载轻量版 FFmpeg 并放置在正确目录：
 ```bash
-python src/DJI_Batch_LUTer.py
+python src/setup_ffmpeg.py
 ```
+
+### 4. 运行或打包 (Run/Build)
+- **直接运行程序**:
+  ```bash
+  python src/DJI_Batch_LUTer.py
+  ```
+- **生成独立 EXE (打包)**:
+  如果你想生成一个不需要 Python 也能运行的 `.exe` 文件：
+  ```bash
+  python src/build.py
+  ```
+  打包完成后，生成的程序将在 `dist/DJI_Batch_LUTer.exe`。
 
 ## 🛠️ 使用说明
 

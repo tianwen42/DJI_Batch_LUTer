@@ -25,8 +25,9 @@ python src/build.py
 ```bash
 pyinstaller --noconsole --onefile --name "DJI_Batch_LUTer" \
 --add-data "config;config" \
---add-data "bin;bin" \
 --add-data "ffmpeg;ffmpeg" \
+--add-data "src/assets;src/assets" \
+--icon=src/assets/icon.ico \
 src/DJI_Batch_LUTer.py
 ```
 

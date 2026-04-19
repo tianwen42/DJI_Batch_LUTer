@@ -31,7 +31,7 @@ def build():
 
     # 添加数据目录 (仅当目录存在时添加)
     # 注意: Windows 格式为 source;dest
-    data_dirs = ["config", "bin", "doc", "ffmpeg", "src/assets"]
+    data_dirs = ["config", "doc", "ffmpeg", "src/assets"]
     for d in data_dirs:
         if os.path.exists(d):
             cmd.extend(["--add-data", f"{d};{d}"])
