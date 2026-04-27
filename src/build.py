@@ -28,7 +28,6 @@ def build():
         "--name=DJI_Batch_LUTer", # 程序名称
         "--icon=src/assets/icon.ico",    # 程序图标
         "--clean",               # 清理缓存
-        "--upx-dir=.",           # 使用当前目录下的 UPX 压缩
     ]
 
     # --- 优化体积: 排除不必要的模块 ---
