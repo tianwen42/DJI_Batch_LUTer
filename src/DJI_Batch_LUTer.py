@@ -2,11 +2,13 @@ import sys
 import os
 import subprocess
 import json
+import threading
+import time
 from pathlib import Path
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-                             QPushButton, QLineEdit, QLabel, QFileDialog, QTextEdit, 
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+                             QPushButton, QLineEdit, QLabel, QFileDialog, QTextEdit,
                              QProgressBar, QMessageBox, QSpinBox, QComboBox, QGroupBox)
-from PyQt6.QtCore import Qt, QObject, QRunnable, QThreadPool, pyqtSignal, pyqtSlot, QDateTime
+from PyQt6.QtCore import Qt, QObject, QRunnable, QThreadPool, pyqtSignal, pyqtSlot, QDateTime, QTimer
 from PyQt6.QtGui import QIcon, QPixmap
 
 # 路径处理逻辑：兼容脚本运行与 PyInstaller 打包
@@ -72,7 +74,9 @@ class ExportWorker(QRunnable):
 
     @pyqtSlot()
     def run(self):
-        output_file = self.output_dir / f"{self.video_path.stem}_Rec709.mp4"
+        # 添加时间戳避免同名文件覆盖
+        timestamp = int(time.time() * 1000) % 1000000
+        output_file = self.output_dir / f"{self.video_path.stem}_{timestamp}_Rec709.mp4"
         self.signals.log.emit(f"[{get_timestamp()}] <b style='color: #0078d4;'>[处理中]</b> {self.video_path.name}")
         
         # 基础命令构建函数
@@ -80,10 +84,11 @@ class ExportWorker(QRunnable):
             cmd = [self.ffmpeg_path]
             cmd += ["-i", str(self.video_path.absolute())]
             
-            # FFmpeg 滤镜路径转义逻辑 (Windows 特殊处理)
+            # FFmpeg 滤镜路径转义逻辑 (Windows 特殊处理，同时处理空格)
             abs_path = str(Path(self.lut_path_ffmpeg).absolute()).replace("\\", "/")
             safe_lut_path = abs_path.replace(":", "\\:")
-            cmd += ["-vf", f"format=yuv420p,lut3d='{safe_lut_path}'"]
+            # 路径可能包含空格，需要用双引号包裹
+            cmd += ["-vf", f"format=yuv420p,lut3d=\"{safe_lut_path}\""]
 
             # 根据画质选择调整参数
             if "原画质" in self.quality_mode:
@@ -117,10 +122,10 @@ class ExportWorker(QRunnable):
             if os.name == 'nt':
                 startupinfo = subprocess.STARTUPINFO()
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            
+
             # 第一次尝试
             process = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='ignore', startupinfo=startupinfo)
-            
+
             # 如果是硬件编码器失败，尝试回退到 CPU
             if process.returncode != 0 and current_encoder != "CPU (libx264)":
                 error_output = process.stderr.lower()
@@ -153,7 +158,13 @@ class MainWindow(QMainWindow):
         
         self.threadpool = QThreadPool()
         self.cpu_count = os.cpu_count() or 2
-        
+
+        # 日志批量处理
+        self._log_buffer = []
+        self._log_timer = QTimer()
+        self._log_timer.timeout.connect(self._flush_log_buffer)
+        self._log_timer.setInterval(200)  # 每 200ms 刷新一次
+
         # 确保默认素材和导出目录存在 (防止在克隆后文件夹缺失)
         DEFAULT_INPUT_DIR.mkdir(parents=True, exist_ok=True)
         DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -180,6 +191,8 @@ class MainWindow(QMainWindow):
         
         self.total_tasks = 0
         self.completed_tasks = 0
+        self._progress_lock = threading.Lock()
+        self._is_running = False  # 任务运行标志，用于停止控制
 
     def scan_luts(self):
         """扫描 config 目录并按设备系列和类型建立映射"""
@@ -266,7 +279,9 @@ class MainWindow(QMainWindow):
         # 导入目录
         input_layout = QHBoxLayout()
         self.input_edit = QLineEdit(str(DEFAULT_INPUT_DIR))
+        self.input_edit.setToolTip("待处理的视频所在目录，支持 MP4/MOV 格式")
         input_btn = QPushButton("选择素材目录")
+        input_btn.setToolTip("点击选择包含待处理视频的目录")
         input_btn.clicked.connect(lambda: self.select_dir(self.input_edit))
         input_layout.addWidget(QLabel("素材目录:"))
         input_layout.addWidget(self.input_edit)
@@ -276,7 +291,9 @@ class MainWindow(QMainWindow):
         # 导出目录
         output_layout = QHBoxLayout()
         self.output_edit = QLineEdit(str(DEFAULT_OUTPUT_DIR))
+        self.output_edit.setToolTip("转换后的视频输出目录")
         output_btn = QPushButton("选择导出目录")
+        output_btn.setToolTip("点击选择转换后的视频保存目录")
         output_btn.clicked.connect(lambda: self.select_dir(self.output_edit))
         output_layout.addWidget(QLabel("导出目录:"))
         output_layout.addWidget(self.output_edit)
@@ -292,15 +309,18 @@ class MainWindow(QMainWindow):
 
         # 设备与类型选择
         selector_layout = QHBoxLayout()
-        
+
         self.device_combo = QComboBox()
+        self.device_combo.setToolTip("选择你的大疆设备型号，不同设备使用不同的 LUT 文件")
         self.device_combo.addItems(sorted(self.lut_data.keys()))
         self.device_combo.currentTextChanged.connect(self.on_device_changed)
         
         self.lut_type_combo = QComboBox()
+        self.lut_type_combo.setToolTip("Normalization=色彩还原（Log转Rec.709），Color Grading=风格化调色")
         self.lut_type_combo.currentTextChanged.connect(self.on_lut_type_changed)
         
         self.lut_file_combo = QComboBox()
+        self.lut_file_combo.setToolTip("选择具体的 LUT 滤镜文件")
         self.lut_file_combo.currentTextChanged.connect(self.on_lut_file_combo_changed)
         
         selector_layout.addWidget(QLabel("设备:"))
@@ -318,7 +338,9 @@ class MainWindow(QMainWindow):
         path_layout = QHBoxLayout()
         self.lut_path_edit = QLineEdit()
         self.lut_path_edit.setPlaceholderText("当前选中的 LUT 路径...")
+        self.lut_path_edit.setToolTip("当前选中的 LUT 文件完整路径")
         lut_browse_btn = QPushButton("手动选择 LUT...")
+        lut_browse_btn.setToolTip("手动选择任意 .cube 格式的 LUT 文件")
         lut_browse_btn.clicked.connect(self.select_lut_manually)
         
         path_layout.addWidget(QLabel("LUT 路径:"))
@@ -334,9 +356,10 @@ class MainWindow(QMainWindow):
         perf_layout = QHBoxLayout()
         
         self.encoder_combo = QComboBox()
+        self.encoder_combo.setToolTip("NVIDIA/Intel/AMD 使用显卡加速，CPU 使用纯CPU解码\n自动检测可用编码器，失败时会自动回退到CPU模式")
         self.encoder_combo.addItems([
-            "NVIDIA (h264_nvenc)", 
-            "Intel (h264_qsv)", 
+            "NVIDIA (h264_nvenc)",
+            "Intel (h264_qsv)",
             "AMD (h264_amf)",
             "CPU (libx264)"
         ])
@@ -348,6 +371,7 @@ class MainWindow(QMainWindow):
         self.concurrency_spin = QSpinBox()
         self.concurrency_spin.setRange(1, self.cpu_count)
         self.concurrency_spin.setValue(2)
+        self.concurrency_spin.setToolTip(f"同时处理的任务数量，建议：\n• 显卡加速时 1-2（避免显存不足）\n• CPU 模式可设为 {self.cpu_count}（充分利用多核）")
         perf_layout.addWidget(QLabel("并行任务数:"))
         perf_layout.addWidget(self.concurrency_spin)
         
@@ -355,10 +379,11 @@ class MainWindow(QMainWindow):
 
         # 新增画质选择
         self.quality_combo = QComboBox()
+        self.quality_combo.setToolTip("原画质：150M码率/CRF14，视觉无损\n高质量：80M码率/CRF16，适合分享\n标准：40M码率/CRF20，平衡大小与画质\n极速：15M码率/CRF24，最小体积")
         self.quality_combo.addItems([
             "原画质 (Original Quality)",
-            "高质量 (High Quality)", 
-            "标准 (Standard)", 
+            "高质量 (High Quality)",
+            "标准 (Standard)",
             "极速 (Fastest)"
         ])
         self.quality_combo.setCurrentIndex(0) # 默认原画质
@@ -375,7 +400,9 @@ class MainWindow(QMainWindow):
             default_ffmpeg = str(LOCAL_FFMPEG_PATH)
             
         self.ffmpeg_edit = QLineEdit(default_ffmpeg)
+        self.ffmpeg_edit.setToolTip("FFmpeg 可执行文件路径\n程序会自动检测 ffmpeg/bin/ 目录下的内置版本")
         ffmpeg_browse_btn = QPushButton("选择 FFmpeg...")
+        ffmpeg_browse_btn.setToolTip("手动选择 FFmpeg 可执行文件")
         ffmpeg_browse_btn.clicked.connect(self.select_ffmpeg_manually)
         perf_layout.addWidget(QLabel("FFmpeg 路径:"))
         perf_layout.addWidget(self.ffmpeg_edit)
@@ -506,14 +533,17 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "提示", "输出目录不存在。")
 
     def is_ffmpeg_valid(self, path):
-        """检查 FFmpeg 路径是否有效且可运行"""
+        """检查 FFmpeg 路径是否有效且可运行（带超时）"""
+        if not path or not os.path.exists(path):
+            return False
         try:
             startupinfo = None
             if os.name == 'nt':
                 startupinfo = subprocess.STARTUPINFO()
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            
-            res = subprocess.run([path, "-version"], capture_output=True, text=True, startupinfo=startupinfo)
+
+            res = subprocess.run([path, "-version"], capture_output=True, text=True,
+                                 startupinfo=startupinfo, timeout=3)  # 3秒超时
             return res.returncode == 0
         except Exception:
             return False
@@ -555,15 +585,18 @@ class MainWindow(QMainWindow):
         self.log_display.append("<span style='color: #dc3545;'>❌ 未找到可用的 FFmpeg，请手动指定路径。</span>")
 
     def detect_available_encoders(self, ffmpeg_path):
+        """检测可用的硬件编码器（带超时）"""
         try:
-            res = subprocess.run([ffmpeg_path, "-encoders"], capture_output=True, text=True)
+            # 使用 -loglevel quiet 减少输出，用 -encoders 2>/dev/null 加速
+            res = subprocess.run([ffmpeg_path, "-loglevel", "quiet", "-encoders"],
+                                 capture_output=True, text=True, timeout=5)
             if "nvenc" in res.stdout:
                 self.encoder_combo.setCurrentText("NVIDIA (h264_nvenc)")
             elif "qsv" in res.stdout:
                 self.encoder_combo.setCurrentText("Intel (h264_qsv)")
             elif "amf" in res.stdout:
                 self.encoder_combo.setCurrentText("AMD (h264_amf)")
-        except:
+        except Exception:
             pass
 
     def load_config(self):
@@ -612,8 +645,8 @@ class MainWindow(QMainWindow):
                     ffmpeg_path = config.get("ffmpeg_path")
                     if ffmpeg_path and self.is_ffmpeg_valid(ffmpeg_path):
                         self.ffmpeg_edit.setText(ffmpeg_path)
-            except:
-                pass
+            except Exception as e:
+                print(f"配置加载失败: {e}")
 
     def save_config(self):
         config = {
@@ -631,21 +664,31 @@ class MainWindow(QMainWindow):
             json.dump(config, f, ensure_ascii=False, indent=4)
 
     def stop_tasks(self):
+        self._is_running = False
         self.threadpool.clear()
-        self.log_display.append("\n🛑 任务已取消，正在等待当前视频完成...")
+        self._log_timer.stop()
+        self._flush_log_buffer()
+        self.log_display.append("\n🛑 任务已取消")
         self.stop_btn.setEnabled(False)
 
     def update_progress(self):
-        self.completed_tasks += 1
-        val = int((self.completed_tasks / self.total_tasks) * 100)
+        with self._progress_lock:
+            self.completed_tasks += 1
+            completed = self.completed_tasks
+        val = int((completed / self.total_tasks) * 100)
         self.progress_bar.setValue(val)
         
         if self.completed_tasks == self.total_tasks:
+            self._log_timer.stop()
+            self._flush_log_buffer()
             self.start_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
-            self.log_display.append("<br><b style='color: #28a745; font-size: 14px;'>🏆 批量转换任务全部完成！</b>")
-            self.log_display.append(f"项目已保存在: <a href='file:///{self.output_edit.text()}'>{self.output_edit.text()}</a>")
-            QMessageBox.information(self, "完成", f"已成功处理 {self.total_tasks} 个视频。")
+            # 仅在未被取消时显示完成信息
+            if self._is_running:
+                self._is_running = False
+                self.log_display.append("<br><b style='color: #28a745; font-size: 14px;'>🏆 批量转换任务全部完成！</b>")
+                self.log_display.append(f"项目已保存在: <a href='file:///{self.output_edit.text()}'>{self.output_edit.text()}</a>")
+                QMessageBox.information(self, "完成", f"已成功处理 {self.total_tasks} 个视频。")
 
     def start_export(self):
         self.save_config()
@@ -678,7 +721,8 @@ class MainWindow(QMainWindow):
         self.completed_tasks = 0
         self.progress_bar.setValue(0)
         self.log_display.clear()
-        
+        self._log_buffer.clear()
+
         # 打印友好的启动信息
         self.log_display.append(f"<b style='font-size: 14px; color: #0078d4;'>🚀 批量转换任务启动</b>")
         self.log_display.append(f"📅 启动时间: {QDateTime.currentDateTime().toString('yyyy-MM-dd HH:mm:ss')}")
@@ -689,6 +733,10 @@ class MainWindow(QMainWindow):
         self.log_display.append(f"⚙️ 并行数: {max_threads}")
         self.log_display.append("<hr>")
 
+        # 启动日志批量刷新定时器
+        self._log_timer.start()
+        self._is_running = True  # 标记任务开始运行
+
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.threadpool.setMaxThreadCount(max_threads)
@@ -696,11 +744,22 @@ class MainWindow(QMainWindow):
         # 将原始路径传给 Worker，在 Worker 内部处理转义
         for video in video_files:
             worker = ExportWorker(video, output_dir, lut_path, ffmpeg_path, encoder_type, quality_mode)
-            worker.signals.log.connect(self.log_display.append)
+            worker.signals.log.connect(self._append_log_buffer)
             worker.signals.progress.connect(self.update_progress)
             self.threadpool.start(worker)
 
+    def _append_log_buffer(self, text):
+        """将日志添加到缓冲区"""
+        self._log_buffer.append(text)
+
+    def _flush_log_buffer(self):
+        """批量刷新日志缓冲区"""
+        if self._log_buffer:
+            self.log_display.append("".join(self._log_buffer))
+            self._log_buffer.clear()
+
     def closeEvent(self, event):
+        self._log_timer.stop()
         self.save_config()
         event.accept()
 

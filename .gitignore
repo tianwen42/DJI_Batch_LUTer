@@ -33,26 +33,22 @@ dist/
 
 # Project Specific
 bin/
-ffmpeg/*
-!ffmpeg/.gitkeep
+ffmpeg/
 *.json
 !requirements.txt
 !package.json
 # 忽略运行时生成的配置
 dji_luter_config.json
 dji_export_config.json
-# 忽略素材和导出目录下的所有文件 (保留空目录)
-RAW/*
-!RAW/.gitkeep
-EXPORT/*
-!EXPORT/.gitkeep
+# 忽略素材和导出目录下的所有文件 (不推送到 GitHub)
+RAW/
+EXPORT/
 
 # 忽略打包生成的压缩包和工具
 *.zip
 upx.exe
 release_*/
 DJI_Batch_LUTer_*/
-test_isolated/
 
 # Log files
 *.log
