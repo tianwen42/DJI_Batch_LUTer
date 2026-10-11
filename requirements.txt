@@ -1,2 +1,2 @@
+# GUI 框架
 PyQt6
-Pillow

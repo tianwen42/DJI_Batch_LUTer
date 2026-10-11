@@ -1,0 +1,11 @@
+{
+    "input_dir": "RAW",
+    "output_dir": "EXPORT",
+    "device": "Action 4",
+    "lut_type": "Normalization",
+    "lut_path": "config/Action 4/Normalization/DJI OSMO Action 4 D-Log M to Rec.709 V1.cube",
+    "encoder": "CPU (libx264)",
+    "quality": "标准 (Standard)",
+    "concurrency": 2,
+    "ffmpeg_path": "ffmpeg/bin/ffmpeg.exe"
+}

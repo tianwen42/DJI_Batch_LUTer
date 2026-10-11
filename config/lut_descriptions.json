@@ -1,0 +1,29 @@
+{
+    "_说明": "这里是每个滤镜的效果提示文案，只用于界面提示，不会修改滤镜名称。key 支持三种写法：『设备/类型/文件名』『设备/文件名』『文件名』，也支持 * 通配符；value 就是界面里显示的说明。改完保存即生效（程序会自动重新读取），新增设备/滤镜时留空的会自动按类型给默认文案。",
+    "_示例": {
+        "Action 4/Color Grading/*.cube": "用通配符覆盖 Action 4 整个调色目录的文案"
+    },
+    "Action 4/Color Grading/DJI OSMO Action 4 Forest Pro.cube": "森林风格：浓郁自然、偏青绿，适合山林植被等户外场景",
+    "Action 4/Color Grading/DJI OSMO Action 4 Ice Pro.cube": "冰蓝风格：冷调清透，适合雪景、水面与冷色场景",
+    "Action 4/Color Grading/DJI OSMO Action 4 Nature Pro.cube": "自然风格：通透清新，接近肉眼观感",
+    "Action 4/Normalization/DJI OSMO Action 4 D-Log M to Rec.709 V1.cube": "D-Log M → Rec.709 标准还原，色彩中性，适合作为后续调色的起点",
+    "Action 5 Pro/Color Grading/DJI OSMO Action 5 Pro Ju.cube": "大疆官方「梅兰竹菊」系列调色滤镜（菊）：偏中式氛围感，建议先拿小段素材试套再批量导出",
+    "Action 5 Pro/Color Grading/DJI OSMO Action 5 Pro Lan.cube": "大疆官方「梅兰竹菊」系列调色滤镜（兰）：偏中式氛围感，建议先拿小段素材试套再批量导出",
+    "Action 5 Pro/Color Grading/DJI OSMO Action 5 Pro Mei.cube": "大疆官方「梅兰竹菊」系列调色滤镜（梅）：偏中式氛围感，建议先拿小段素材试套再批量导出",
+    "Action 5 Pro/Color Grading/DJI OSMO Action 5 Pro Zhu.cube": "大疆官方「梅兰竹菊」系列调色滤镜（竹）：偏中式氛围感，建议先拿小段素材试套再批量导出",
+    "Action 5 Pro/Normalization/DJI OSMO Action 5 Pro D-Log M to Rec.709 V1.cube": "D-Log M → Rec.709 标准还原，色彩中性，适合作为后续调色的起点",
+    "Action 6/Normalization/DJI OSMO Action 6 D-LogM to Rec.709 LUT-11.17.cube": "D-Log M → Rec.709 标准还原，色彩中性，适合作为后续调色的起点",
+    "Mavic 3/Normalization/DJI Mavic 3 D-Log M to Rec.709 V1.cube": "D-Log M → Rec.709 标准还原，色彩中性，适合作为后续调色的起点",
+    "Mavic 3/Normalization/DJI Mavic 3 D-Log to Rec.709 V1.cube": "D-Log → Rec.709 标准还原，色彩中性，适合作为后续调色的起点",
+    "Mavic 3/Normalization/DJI Mavic 3 D-Log to Rec.709 vivid V1.cube": "D-Log → Rec.709 鲜艳版：在标准还原的基础上提高饱和度与对比度，画面更通透讨喜",
+    "Mavic 4 Pro/Normalization/DJI Mavic 4 Pro D-Log M to Rec.709 V1.cube": "D-Log M → Rec.709 标准还原，色彩中性，适合作为后续调色的起点",
+    "Mavic 4 Pro/Normalization/DJI Mavic 4 Pro D-Log to Rec.709 V1.cube": "D-Log → Rec.709 标准还原，色彩中性，适合作为后续调色的起点",
+    "Mavic 4 Pro/Normalization/DJI Mavic 4 Pro D-Log to Rec.709 vivid V1.cube": "D-Log → Rec.709 鲜艳版：在标准还原的基础上提高饱和度与对比度，画面更通透讨喜",
+    "Pocket 3/通用 (General)/DJI OSMO Pocket 3 Autumn Pro.cube": "秋季风格：暖调金黄，适合落叶、暖阳场景",
+    "Pocket 3/通用 (General)/DJI OSMO Pocket 3 D-Log M to Rec.709 V1.cube": "D-Log M → Rec.709 标准还原，色彩中性，适合作为后续调色的起点",
+    "Pocket 3/通用 (General)/DJI OSMO Pocket 3 Spring Pro.cube": "春季风格：清透明亮、偏嫩绿，适合花草与新绿",
+    "Pocket 3/通用 (General)/DJI OSMO Pocket 3 Summer Pro.cube": "夏季风格：明亮高饱和，适合阳光、海滩等热烈场景",
+    "Pocket 3/通用 (General)/DJI OSMO Pocket 3 Winter Pro.cube": "冬季风格：冷调低饱和，适合雪景与清冷氛围",
+    "Pocket 4/Normalization/DJI OSMO Pocket 4 D-Log to Rec.709 V1.0.cube": "D-Log → Rec.709 标准还原，色彩中性，适合作为后续调色的起点",
+    "Pocket 4/Normalization/DJI OSMO Pocket 4 D-Log to Rec.709 vivid V1.0.cube": "D-Log → Rec.709 鲜艳版：在标准还原的基础上提高饱和度与对比度，画面更通透讨喜"
+}

@@ -28,8 +28,8 @@ ENV/
 #  通常这些文件夹是打包过程生成的临时文件
 build/
 dist/
-# 如果你不希望提交 spec 文件，可以取消注释
-# *.spec
+# spec 是 PyInstaller 每次构建都会重写的产物，不纳入版本管理
+*.spec
 
 # Project Specific
 bin/
@@ -37,6 +37,10 @@ ffmpeg/
 *.json
 !requirements.txt
 !package.json
+# 配置模板需要入库 (上面的 *.json 会把它一起忽略)
+!config.example.json
+# 滤镜效果说明需要入库
+!config/lut_descriptions.json
 # 忽略运行时生成的配置
 dji_luter_config.json
 dji_export_config.json
@@ -49,6 +53,12 @@ EXPORT/
 upx.exe
 release_*/
 DJI_Batch_LUTer_*/
+# build.py 打包过程中的临时过渡目录（中断/失败时可能残留）
+_build_dist_*/
+_dist_old_*/
+
+# 本地 AI 助手会话记忆/日志目录，不进入仓库
+.workbuddy/
 
 # Log files
 *.log
