@@ -692,7 +692,7 @@ class MainWindow(QMainWindow):
         self.concurrency_spin = QSpinBox()
         self.concurrency_spin.setRange(1, self.cpu_count)
         self.concurrency_spin.setValue(2)
-        self.concurrency_spin.setToolTip(f"同时处理的任务数量，建议：\n• 显卡加速时 1-2（避免显存不足）\n• CPU 模式可设为 {self.cpu_count}（充分利用多核）")
+        self.concurrency_spin.setToolTip(f"同时处理的任务数量，建议：\n• 显卡加速时 3-7\n• CPU 模式可设为 {self.cpu_count}（充分利用多核）")
         perf_layout.addWidget(QLabel("并行任务数:"))
         perf_layout.addWidget(self.concurrency_spin)
         
