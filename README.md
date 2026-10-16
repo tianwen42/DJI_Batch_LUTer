@@ -1,17 +1,26 @@
-# DJI Batch LUTer
+<h1 align="center">🎬 DJI Batch LUTer</h1>
 
-这是一个专门为大疆 (DJI) 全系列设备开发的视频批量转换工具。它可以将 Action、Mavic、Air、Pocket 等系列录制的 D-Log / D-Log M 原始素材，通过官方 LUT 快速还原为标准 Rec.709 色彩，并支持应用各类官方特定的调色滤镜。
+<p align="center"><b>大疆 (DJI) 全系列视频批量调色工具</b></p>
 
-目前支持的设备包括但不限于：
-- **Action 系列**: Action 4, Action 5 Pro, Action 6
-- **Pocket 系列**: Pocket 3, Pocket 4, Pocket 6
-- **Mavic 系列**: Mavic 3, Mavic 4 Pro
+<p align="center">把 Action / Pocket / Mavic 等系列录制的 D-Log / D-Log M 灰片素材，通过官方 LUT 一键还原为标准 Rec.709 色彩；<br>支持套用官方调色滤镜、显卡加速、批量并行导出。</p>
 
-![Main Interface](doc/mainWindow.png)
+<p align="center">
+<a href="#-核心功能">核心功能</a> ·
+<a href="#-支持列表">支持列表</a> ·
+<a href="#-项目结构">项目结构</a> ·
+<a href="#-快速开始-开发者从源码运行">快速开始</a> ·
+<a href="#-使用说明">使用说明</a> ·
+<a href="#-导出参数">导出参数</a> ·
+<a href="#-ffmpeg-下载源">FFmpeg 下载源</a>
+</p>
 
-**效果预览**：D-Log M 素材经 Rec.709 还原前后对比（左：还原前，右：还原后）：
+<p align="center"><img src="doc/mainWindow.png" width="720" alt="主界面"></p>
 
-![Before/After](doc/result.png)
+<p align="center"><b>效果预览</b>：D-Log M 素材还原前后对比（左：还原前，右：还原后）</p>
+
+<p align="center"><img src="doc/result.png" width="720" alt="效果对比"></p>
+
+---
 
 ## 🌟 核心功能
 
@@ -23,17 +32,38 @@
 
 ## 📋 支持列表
 
-| 设备系列                     | 还原滤镜 (Normalization) | 调色滤镜 (Color Grading)  | 说明                  |
-| :----------------------- | :------------------- | :-------------------- | :------------------ |
-| **Osmo Action 4**        | ✅ D-Log M to Rec.709 | ✅ Forest, Ice, Nature | 🎨 全系列官方调色支持           |
-| **Osmo Action 5 Pro**    | ✅ D-Log M to Rec.709 | ✅ Ju, Lan, Mei, Zhu   | ✨ 最新 Pro 系列滤镜支持       |
-| **Osmo Action 6**        | ✅ D-Log M to Rec.709 | -                     | 🚀 新增 Action 6 适配       |
-| **Osmo Pocket 3**        | ✅ D-Log M to Rec.709 | ✅ Spring, Summer...  | 🌸 包含四季风格调色           |
-| **Osmo Pocket 4**        | ✅ D-Log to Rec.709   | -                     | 🎞️ 包含标准及 Vivid 还原      |
-| **Osmo Pocket 6**        | ⏳ 待补充滤镜文件         | -                     | 📂 放入 `config/Pocket 6/` 即可 |
-| **Mavic 3 系列**           | ✅ D-Log, D-Log M     | -                     | 🛸 包含标准及 Vivid 还原      |
-| **Mavic 4 Pro**          | ✅ D-Log, D-Log M     | -                     | 🚁 包含标准及 Vivid 还原      |
-| **其他设备**                 | 自动识别子目录              | 自动识别子目录               | 📂 支持通过 `config/` 目录扩展 |
+| 设备系列                  | 还原滤镜 (Normalization) | 调色滤镜 (Color Grading) | 说明                        |
+| :-------------------- | :-------------------- | :-------------------- | :------------------------ |
+| **Osmo Action 4**     | ✅ D-Log M to Rec.709  | ✅ Forest, Ice, Nature  | 🎨 全系列官方调色支持              |
+| **Osmo Action 5 Pro** | ✅ D-Log M to Rec.709  | ✅ Ju, Lan, Mei, Zhu    | ✨ 最新 Pro 系列滤镜支持           |
+| **Osmo Action 6**     | ✅ D-Log M to Rec.709  | —                     | 🚀 新增 Action 6 适配          |
+| **Osmo Pocket 3**     | ✅ D-Log M to Rec.709  | ✅ Spring, Summer...    | 🌸 包含四季风格调色                |
+| **Osmo Pocket 4**     | ✅ D-Log to Rec.709    | —                     | 🎞️ 包含标准及 Vivid 还原         |
+| **Osmo Pocket 6**     | ⏳ 待补充滤镜文件             | —                     | 📂 放入 `config/Pocket 6/` 即可 |
+| **Mavic 3 系列**        | ✅ D-Log, D-Log M       | —                     | 🛸 包含标准及 Vivid 还原         |
+| **Mavic 4 Pro**       | ✅ D-Log, D-Log M       | —                     | 🚁 包含标准及 Vivid 还原         |
+| **其他设备**              | 自动识别子目录               | 自动识别子目录               | 📂 支持通过 `config/` 目录扩展     |
+
+### 滤镜效果说明
+
+滤镜名称不带效果描述，选中后界面下方会显示对应提示（文案取自 `config/lut_descriptions.json`，可自行修改）。
+
+**还原滤镜（Normalization）** —— 把灰片还原成可正常观看的色彩：
+
+| 滤镜 | 效果 |
+| :--- | :--- |
+| `D-Log M / D-Log → Rec.709` | 标准还原：色彩中性，作为后续调色的起点 |
+| `… → Rec.709 Vivid` | 鲜艳版：提高饱和度与对比度，画面更通透，出片直发 |
+
+**调色滤镜（Color Grading）** —— 在还原基础上套用官方风格，出片即成品：
+
+| 滤镜 | 效果 |
+| :--- | :--- |
+| 🌲 **Forest** | 森林：浓郁自然、偏青绿，适合山林植被等户外场景 |
+| 🧊 **Ice** | 冰蓝：冷调清透，适合雪景、水面与冷色场景 |
+| 🌿 **Nature** | 自然：通透清新，接近肉眼观感 |
+| 🎋 **Ju / Lan / Mei / Zhu** | 梅兰竹菊：四款中式氛围感滤镜，建议先用小段素材试套 |
+| 🌸 **Spring / Summer / Autumn / Winter** | 四季：春 清透明亮偏嫩绿 · 夏 明亮高饱和 · 秋 暖调金黄 · 冬 冷调低饱和 |
 
 ## 📂 项目结构
 

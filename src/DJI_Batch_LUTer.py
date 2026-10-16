@@ -481,7 +481,12 @@ class MainWindow(QMainWindow):
         # LUT 数据结构: {设备名: {类型: [文件列表]}}
         self.lut_data = {}
         self.scan_luts()
-        
+
+        # 这两个状态必须在 load_config() 之前初始化：
+        # load_config 会依据配置文件把它们改写，若之后又赋默认值会把读到的值冲掉。
+        self._encoder_from_config = False  # 用户是否显式保存过编码器偏好
+        self._encoder_cache = {}           # 编码器探测结果缓存 {fingerprint, encoder}
+
         self.init_ui()
         self.load_config()
 
@@ -501,7 +506,6 @@ class MainWindow(QMainWindow):
 
         self._run_id = 0           # 每轮任务自增，用于丢弃已取消任务的进度回调
         self.jobs = JobRegistry()  # 正在运行的 FFmpeg 进程登记表
-        self._encoder_from_config = False  # 用户是否显式保存过编码器偏好
 
     def scan_luts(self):
         """扫描 config 目录并按设备系列和类型建立映射"""
@@ -1085,9 +1089,20 @@ class MainWindow(QMainWindow):
 
         只看 -encoders 只能说明该 FFmpeg 编译时启用了对应编码器，不代表本机
         硬件/驱动可用，因此这里会实际试编码一次。
+
+        探测结果（含编码器名 + FFmpeg 指纹）会缓存进配置文件：同一份 FFmpeg
+        下次启动直接命中缓存、跳过 1~4 秒的试编码；FFmpeg 换了就自动失效重测。
         """
         if respect_user_choice and getattr(self, "_encoder_from_config", False):
             return
+
+        # 0. 先查缓存：同一份 FFmpeg 已测过就直接用，省去全部子进程开销
+        cached = self._load_encoder_cache(ffmpeg_path)
+        if cached:
+            self.encoder_combo.setCurrentText(cached)
+            self.log_display.append(f"⚡ 使用缓存的编码器检测结果: {cached}")
+            return
+
         try:
             res = subprocess.run([ffmpeg_path, "-loglevel", "quiet", "-encoders"],
                                  capture_output=True, text=True, timeout=8,
@@ -1104,8 +1119,45 @@ class MainWindow(QMainWindow):
             if self._probe_encoder(ffmpeg_path, encoder):
                 self.encoder_combo.setCurrentText(label)
                 self.log_display.append(f"🔍 检测到可用硬件编码器: {label}")
+                self._store_encoder_cache(ffmpeg_path, label)
                 return
         self.log_display.append("ℹ️ 未检测到可用硬件编码器，使用 CPU 编码。")
+        self._store_encoder_cache(ffmpeg_path, CPU_ENCODER)
+
+    @staticmethod
+    def _ffmpeg_fingerprint(ffmpeg_path):
+        """FFmpeg 指纹（绝对路径 + 大小 + 修改时间）。任一项变化即视为不同版本。"""
+        try:
+            p = Path(ffmpeg_path).resolve()
+            st = p.stat()
+            return f"{p}|{st.st_size}|{int(st.st_mtime)}"
+        except OSError:
+            return None
+
+    def _load_encoder_cache(self, ffmpeg_path):
+        """命中缓存则返回编码器名（字符串），否则 None。"""
+        cache = getattr(self, "_encoder_cache", None)
+        if not cache:
+            return None
+        fp = self._ffmpeg_fingerprint(ffmpeg_path)
+        if not fp or cache.get("fingerprint") != fp:
+            return None
+        label = cache.get("encoder")
+        # 编码器名必须仍是下拉框里的合法选项，避免旧配置残留脏值
+        if label and self.encoder_combo.findText(label) >= 0:
+            return label
+        return None
+
+    def _store_encoder_cache(self, ffmpeg_path, label):
+        """记录探测结果并落盘（失败时静默，不影响主流程）。"""
+        fp = self._ffmpeg_fingerprint(ffmpeg_path)
+        if not fp:
+            return
+        self._encoder_cache = {"fingerprint": fp, "encoder": label}
+        try:
+            self.save_config()
+        except Exception:
+            pass
 
     @staticmethod
     def _probe_encoder(ffmpeg_path, encoder):
@@ -1123,6 +1175,26 @@ class MainWindow(QMainWindow):
         except Exception:
             return False
 
+    @staticmethod
+    def _resolve_saved_dir(saved):
+        """把配置里保存的目录解析成可用的绝对路径；不可用则返回 None。
+
+        - 相对路径按 BASE_DIR（EXE / 脚本所在目录）解析，
+          避免从其它工作目录启动时被解析到错误位置。
+        - 目录不存在时返回 None，由调用方回落到默认目录。
+        """
+        if not saved:
+            return None
+        p = Path(saved)
+        if not p.is_absolute():
+            p = BASE_DIR / p
+        try:
+            if p.is_dir():
+                return str(p)
+        except OSError:
+            pass
+        return None
+
     def load_config(self):
         if not CONFIG_FILE.exists():
             return
@@ -1133,18 +1205,16 @@ class MainWindow(QMainWindow):
             # 记录用户是否显式保存过编码器偏好（保存过就不被自动检测覆盖）
             self._encoder_from_config = bool(config.get("encoder"))
 
-            # 检查路径是否存在，不存在则使用默认值
-            input_dir = config.get("input_dir")
-            if input_dir and os.path.exists(input_dir):
-                self.input_edit.setText(input_dir)
-            else:
-                self.input_edit.setText(str(DEFAULT_INPUT_DIR))
+            # 恢复编码器探测缓存（避免每次启动都重新试编码）
+            self._encoder_cache = config.get("encoder_cache") or {}
 
-            output_dir = config.get("output_dir")
-            if output_dir and os.path.exists(output_dir):
-                self.output_edit.setText(output_dir)
-            else:
-                self.output_edit.setText(str(DEFAULT_OUTPUT_DIR))
+            # 检查路径是否存在，不存在则使用默认值
+            # 相对路径统一按程序所在目录(BASE_DIR)解析，避免从别的工作目录启动时指错
+            input_dir = self._resolve_saved_dir(config.get("input_dir"))
+            self.input_edit.setText(input_dir if input_dir else str(DEFAULT_INPUT_DIR))
+
+            output_dir = self._resolve_saved_dir(config.get("output_dir"))
+            self.output_edit.setText(output_dir if output_dir else str(DEFAULT_OUTPUT_DIR))
 
             # 恢复设备和类型选择
             device = config.get("device")
@@ -1179,9 +1249,17 @@ class MainWindow(QMainWindow):
             self.log_display.append(
                 f"<span style='color: #dc3545;'>⚠️ 配置读取失败，已使用默认设置: {e}</span>")
     def save_config(self):
+        # 目录统一存绝对路径：相对路径按 BASE_DIR 展开，避免下次从别处启动时解析错位
+        def _abs(text):
+            text = (text or "").strip()
+            if not text:
+                return text
+            p = Path(text)
+            return str(p if p.is_absolute() else BASE_DIR / p)
+
         config = {
-            "input_dir": self.input_edit.text(),
-            "output_dir": self.output_edit.text(),
+            "input_dir": _abs(self.input_edit.text()),
+            "output_dir": _abs(self.output_edit.text()),
             "device": self.device_combo.currentText(),
             "lut_type": self.lut_type_combo.currentText(),
             "lut_path": self.lut_path_edit.text(),
@@ -1190,6 +1268,9 @@ class MainWindow(QMainWindow):
             "concurrency": self.concurrency_spin.value(),
             "ffmpeg_path": self.ffmpeg_edit.text()
         }
+        # 编码器探测缓存：仅在有结果时写入，避免覆盖已有缓存
+        if getattr(self, "_encoder_cache", None):
+            config["encoder_cache"] = self._encoder_cache
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(config, f, ensure_ascii=False, indent=4)
 
@@ -1322,8 +1403,27 @@ class MainWindow(QMainWindow):
         self.jobs.cancel()
         self.save_config()
         event.accept()
+def _set_windows_app_id():
+    """Windows 任务栏图标修复：显式设置 AppUserModelID。
+
+    否则打包后的 EXE 任务栏按钮无法与 EXE 内嵌图标关联，
+    会出现「任务栏看不到图标」或显示成 python 图标的情况。
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "DJI.Batch.LUTer")
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
+    _set_windows_app_id()
     app = QApplication(sys.argv)
+    app.setApplicationName("DJI Batch LUTer")
+    app.setWindowIcon(QIcon(str(ICON_PATH)) if ICON_PATH.exists() else QIcon())
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
